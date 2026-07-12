@@ -69,9 +69,7 @@ class HermesConfig:
         if not self.provider:
             self.provider = os.environ.get("FABRICIUM_TEST_PROVIDER", "deepseek")
         if not self.model:
-            self.model = os.environ.get(
-                "FABRICIUM_TEST_MODEL", "deepseek/deepseek-chat"
-            )
+            self.model = os.environ.get("FABRICIUM_TEST_MODEL", "deepseek/deepseek-chat")
         if not self.api_key:
             # Try provider-specific env var first, then generic fallback
             provider_upper = self.provider.upper()
@@ -142,9 +140,7 @@ class HermesDockerTestEnv:
     ) -> None:
         self.plugin_name = plugin_name
         self.plugin_dir = Path(plugin_dir).resolve()
-        self.fabricium_src = (
-            Path(fabricium_src).resolve() if fabricium_src else None
-        )
+        self.fabricium_src = Path(fabricium_src).resolve() if fabricium_src else None
         self.config = config or HermesConfig()
         self.image = image
         self.keep = keep
@@ -220,9 +216,7 @@ class HermesDockerTestEnv:
             raise RuntimeError("Container not started — call start() first.")
 
         cmd = ["docker", "exec", self._container_name, "hermes", *args]
-        proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout
-        )
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         return CliResult(
             exit_code=proc.returncode,
             stdout=proc.stdout,
@@ -247,9 +241,7 @@ class HermesDockerTestEnv:
             timeout=15,
         )
         if probe.returncode != 0:
-            subprocess.run(
-                ["docker", "pull", self.image], check=True, timeout=300
-            )
+            subprocess.run(["docker", "pull", self.image], check=True, timeout=300)
 
     def _write_hermes_home(self) -> None:
         """Create a minimal Hermes home directory in the temp dir."""
@@ -266,9 +258,7 @@ class HermesDockerTestEnv:
                 )
             )
         else:
-            (hermes_home / "config.yaml").write_text(
-                "# Minimal config — no provider configured\n"
-            )
+            (hermes_home / "config.yaml").write_text("# Minimal config — no provider configured\n")
 
         # .env
         env_lines = []
@@ -302,9 +292,7 @@ class HermesDockerTestEnv:
             shutil.copytree(self.plugin_dir, dst, symlinks=True)
         else:
             dst.mkdir(parents=True)
-            (dst / "plugin.yaml").write_text(
-                PLUGIN_YAML_TEMPLATE.format(name=self.plugin_name)
-            )
+            (dst / "plugin.yaml").write_text(PLUGIN_YAML_TEMPLATE.format(name=self.plugin_name))
             # Copy Python package as-is
             for item in self.plugin_dir.iterdir():
                 if item.name == "__pycache__":
@@ -424,6 +412,4 @@ class HermesDockerTestEnv:
                 return
             last_error = proc.stderr.strip() or proc.stdout.strip()
             time.sleep(1.0)
-        raise RuntimeError(
-            f"Hermes not ready after {timeout}s: {last_error}"
-        )
+        raise RuntimeError(f"Hermes not ready after {timeout}s: {last_error}")

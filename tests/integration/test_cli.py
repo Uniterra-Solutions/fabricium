@@ -22,9 +22,7 @@ def test_hermes_is_available(hermes_test_env: HermesDockerTestEnv) -> None:
 class TestPluginCli:
     """Verify that a fabricium-based plugin's CLI commands work."""
 
-    def test_setup_runs_and_completes(
-        self, hermes_test_env: HermesDockerTestEnv
-    ) -> None:
+    def test_setup_runs_and_completes(self, hermes_test_env: HermesDockerTestEnv) -> None:
         """``hermes <plugin> setup`` should complete successfully."""
         result = hermes_test_env.run_cli(PLUGIN, "setup", timeout=90)
 
@@ -35,9 +33,7 @@ class TestPluginCli:
         # Non-TTY mode defaults to keeping existing SOUL.md
         assert_soul_md_skipped(result)
 
-    def test_status_shows_profile_after_setup(
-        self, hermes_test_env: HermesDockerTestEnv
-    ) -> None:
+    def test_status_shows_profile_after_setup(self, hermes_test_env: HermesDockerTestEnv) -> None:
         """After setup, ``hermes <plugin> status`` mentions the profile."""
         hermes_test_env.run_cli(PLUGIN, "setup", timeout=90)
 
@@ -45,9 +41,7 @@ class TestPluginCli:
         assert_exit_code(result)
         assert_profile_in_output(result, "default")
 
-    def test_update_check_works(
-        self, hermes_test_env: HermesDockerTestEnv
-    ) -> None:
+    def test_update_check_works(self, hermes_test_env: HermesDockerTestEnv) -> None:
         """``hermes <plugin> update --check`` should produce a diagnostic."""
         result = hermes_test_env.run_cli(PLUGIN, "update", "--check", timeout=90)
         assert_update_check_responded(result)
@@ -56,16 +50,12 @@ class TestPluginCli:
 class TestCliGracefulErrors:
     """Verify CLI handles edge cases gracefully."""
 
-    def test_unknown_subcommand(
-        self, hermes_test_env: HermesDockerTestEnv
-    ) -> None:
+    def test_unknown_subcommand(self, hermes_test_env: HermesDockerTestEnv) -> None:
         """Unknown subcommand should fail with non-zero exit."""
         result = hermes_test_env.run_cli(PLUGIN, "nonexistent-command")
         assert result.exit_code != 0
 
-    def test_setup_is_idempotent(
-        self, hermes_test_env: HermesDockerTestEnv
-    ) -> None:
+    def test_setup_is_idempotent(self, hermes_test_env: HermesDockerTestEnv) -> None:
         """Running setup twice should succeed both times."""
         r1 = hermes_test_env.run_cli(PLUGIN, "setup", timeout=90)
         assert_exit_code(r1)

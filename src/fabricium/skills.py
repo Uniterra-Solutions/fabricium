@@ -21,9 +21,7 @@ def get_bundled_skill_names(plugin_dir: Path) -> set[str]:
     skills_dir = plugin_dir / "skills"
     if not skills_dir.is_dir():
         return set()
-    return {
-        child.name for child in sorted(skills_dir.iterdir()) if is_skill_dir(child)
-    }
+    return {child.name for child in sorted(skills_dir.iterdir()) if is_skill_dir(child)}
 
 
 def _remove_installed_skill(skill_name: str) -> bool:

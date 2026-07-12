@@ -58,9 +58,7 @@ def _excerpt(text: str, around: str, context: int = 2) -> str:
         if around in line:
             lo = max(0, i - context)
             hi = min(len(lines), i + context + 1)
-            return "\n".join(
-                f"  {j:3d} | {lines[j]}" for j in range(lo, hi)
-            )
+            return "\n".join(f"  {j:3d} | {lines[j]}" for j in range(lo, hi))
     # Fallback: last few lines
     lo = max(0, len(lines) - 6)
     return "\n".join(f"  {j:3d} | {lines[j]}" for j in range(lo, len(lines)))

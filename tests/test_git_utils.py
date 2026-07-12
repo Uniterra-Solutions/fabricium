@@ -130,9 +130,7 @@ class TestIsAncestor:
         sha1 = git_utils.get_head_hash(repo)
         (tmp_git_repo / "child.txt").write_text("child")
         subprocess.run(["git", "add", "child.txt"], cwd=repo, check=True, capture_output=True)
-        subprocess.run(
-            ["git", "commit", "-m", "child"], cwd=repo, check=True, capture_output=True
-        )
+        subprocess.run(["git", "commit", "-m", "child"], cwd=repo, check=True, capture_output=True)
         sha2 = git_utils.get_head_hash(repo)
         assert git_utils.is_ancestor(sha1, sha2, repo) is True
         # Reverse is False

@@ -126,9 +126,7 @@ def tmp_plugin_dir(tmp_hermes_home):
     for name in ("skill-a", "skill-b"):
         skill_dir = skills_dir / name
         skill_dir.mkdir()
-        (skill_dir / "SKILL.md").write_text(
-            f"---\nname: {name}\n---\n# {name}\n\nTest skill.\n"
-        )
+        (skill_dir / "SKILL.md").write_text(f"---\nname: {name}\n---\n# {name}\n\nTest skill.\n")
 
     # Create global skills dir
     (tmp_hermes_home / "skills").mkdir(parents=True)

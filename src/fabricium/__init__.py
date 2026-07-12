@@ -586,6 +586,4 @@ class HermesPlugin:
                 skill_md = child / "SKILL.md"
                 if child.is_dir() and skill_md.exists():
                     ctx.register_skill(child.name, skill_md)
-                    logger.info(
-                        "Registered bundled skill: %s:%s", self.name, child.name
-                    )
+                    logger.info("Registered bundled skill: %s:%s", self.name, child.name)

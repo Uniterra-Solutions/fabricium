@@ -58,9 +58,7 @@ def get_head_hash(repo_path: Optional[str] = None) -> str:
     return subprocess.check_output(cmd, text=True).strip()
 
 
-def get_diff(
-    start_hash: str, end: str = "HEAD", repo_path: Optional[str] = None
-) -> str:
+def get_diff(start_hash: str, end: str = "HEAD", repo_path: Optional[str] = None) -> str:
     """Return the git diff between two refs as a string."""
     cmd = _git_cmd(repo_path) + ["diff", start_hash, end]
     try:
@@ -145,9 +143,7 @@ def get_remote_head(repo_path: Optional[str] = None) -> str | None:
         return None
 
 
-def get_local_head(
-    repo_path: Optional[str] = None, ref: str | None = None
-) -> str | None:
+def get_local_head(repo_path: Optional[str] = None, ref: str | None = None) -> str | None:
     """Return the full SHA of a local ref (default: HEAD)."""
     target = ref or "HEAD"
     cmd = _git_cmd(repo_path) + ["rev-parse", target]
@@ -193,9 +189,7 @@ def get_ahead_behind(
         return {"ahead": 0, "behind": 0, "remote_head": remote_sha}
 
 
-def is_ancestor(
-    ancestor: str, descendant: str, repo_path: Optional[str] = None
-) -> bool:
+def is_ancestor(ancestor: str, descendant: str, repo_path: Optional[str] = None) -> bool:
     """Check if `ancestor` is an ancestor of `descendant`.
 
     Returns True if ancestor == descendant (same commit).
