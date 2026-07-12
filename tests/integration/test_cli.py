@@ -75,8 +75,6 @@ class TestSelfBootstrap:
 
     def test_plugin_self_bootstraps_missing_fabricium(self) -> None:
         """Plugin CLI works even when fabricium is NOT pre-installed."""
-        import shutil
-        import tempfile
         from pathlib import Path
 
         from fabricium.testing.harness import HermesConfig, HermesDockerTestEnv

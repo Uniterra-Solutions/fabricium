@@ -496,10 +496,7 @@ class HermesPlugin:
                 except subprocess.CalledProcessError:
                     raw_status = ""
                 if raw_status:
-                    print(
-                        "\n! You have uncommitted changes."
-                        " Stash or commit them first:"
-                    )
+                    print("\n! You have uncommitted changes. Stash or commit them first:")
                     for line in raw_status.splitlines():
                         print(f"   {line}")
                     print(f"\n  Then run: hermes {self.name} update")

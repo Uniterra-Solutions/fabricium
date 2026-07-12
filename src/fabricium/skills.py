@@ -24,8 +24,6 @@ def get_bundled_skill_names(plugin_dir: Path) -> set[str]:
     return {child.name for child in sorted(skills_dir.iterdir()) if is_skill_dir(child)}
 
 
-
-
 def remove_stale_from_profile(profile_skills_dir: Path, stale: set[str]) -> None:
     """Remove skills that are no longer bundled from a profile's skills directory.
 
@@ -63,6 +61,7 @@ def _remove_skill_from_dir(skills_dir: Path, skill_name: str) -> None:
 
 
 # === Backward-compat stub (kept for external callers) ===
+
 
 def remove_stale_skills(
     plugin_dir: Path, after_skills: set[str], target_dir: Path | None = None

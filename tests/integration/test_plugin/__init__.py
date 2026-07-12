@@ -8,6 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+
 # Self-bootstrap: fabricium must be importable before the plugin can register
 # CLI commands.  Hermes manages its own venv and may recreate it during updates,
 # dropping plugin-only dependencies.  This guard ensures fabricium is installed
@@ -24,9 +25,10 @@ def _ensure_fabricium() -> None:
         # Clear stale import cache from the failed attempt above
         sys.modules.pop("fabricium", None)
 
+
 _ensure_fabricium()
 
-from fabricium import HermesPlugin
+from fabricium import HermesPlugin  # noqa: E402  (must bootstrap fabricium first)
 
 plugin = HermesPlugin(
     name="fabricium-test-plugin",
