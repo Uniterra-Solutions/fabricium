@@ -275,7 +275,17 @@ class HermesDockerTestEnv:
         (hermes_home / "skills").mkdir(exist_ok=True)
 
     def _install_plugin(self) -> None:
-        """Copy the plugin into the temp HERMES_HOME so Hermes discovers it."""
+        """Copy the plugin into the temp HERMES_HOME so Hermes discovers it.
+
+        Supports two layouts:
+
+        * **Flat layout** — ``plugin.yaml`` and ``__init__.py`` at the
+          project root.  The whole directory is copied.
+
+        * **Src layout** — ``src/<name>/plugin.yaml`` and
+          ``src/<name>/__init__.py``.  Only the ``src/<name>/`` content
+          is copied (Hermes expects ``__init__.py`` at the plugin root).
+        """
         assert self._temp_dir is not None
         dst = self._temp_dir / ".hermes" / "plugins" / self.plugin_name
 
@@ -285,23 +295,28 @@ class HermesDockerTestEnv:
         if dst.exists():
             shutil.rmtree(dst)
 
-        # If the plugin dir already contains a plugin.yaml, copy the whole
-        # tree.  Otherwise, create a minimal plugin.yaml and symlink / copy
-        # the source so Hermes can import it.
+        # Detect src layout: src/<plugin_name>/plugin.yaml
+        src_pkg = self.plugin_dir / "src" / self.plugin_name
+        if (src_pkg / "plugin.yaml").exists():
+            shutil.copytree(src_pkg, dst, symlinks=True)
+            return
+
+        # Flat layout: plugin.yaml at project root
         if (self.plugin_dir / "plugin.yaml").exists():
             shutil.copytree(self.plugin_dir, dst, symlinks=True)
-        else:
-            dst.mkdir(parents=True)
-            (dst / "plugin.yaml").write_text(PLUGIN_YAML_TEMPLATE.format(name=self.plugin_name))
-            # Copy Python package as-is
-            for item in self.plugin_dir.iterdir():
-                if item.name == "__pycache__":
-                    continue
-                dest_item = dst / item.name
-                if item.is_dir():
-                    shutil.copytree(item, dest_item, symlinks=True)
-                else:
-                    shutil.copy2(item, dest_item)
+            return
+
+        # Fallback: no plugin.yaml at all — create minimal one
+        dst.mkdir(parents=True)
+        (dst / "plugin.yaml").write_text(PLUGIN_YAML_TEMPLATE.format(name=self.plugin_name))
+        for item in self.plugin_dir.iterdir():
+            if item.name == "__pycache__":
+                continue
+            dest_item = dst / item.name
+            if item.is_dir():
+                shutil.copytree(item, dest_item, symlinks=True)
+            else:
+                shutil.copy2(item, dest_item)
 
     def _start_container(self) -> None:
         """Launch the Docker container with the temp HERMES_HOME mounted."""

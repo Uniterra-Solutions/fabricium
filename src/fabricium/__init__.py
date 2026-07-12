@@ -33,6 +33,13 @@ from . import git_utils, prompts, skills, state
 logger = logging.getLogger(__name__)
 
 
+def _print_pip_upgrade_instructions(name: str) -> None:
+    """Print upgrade instructions for pip-installed plugins."""
+    print(f"🔍 pip-installed plugin — check for updates with:")
+    print(f"   pip install --upgrade {name}")
+    print(f"   Then run: hermes {name} update  (to refresh skills)")
+
+
 class HermesPlugin:
     """Hermes plugin lifecycle manager.
 
@@ -391,17 +398,21 @@ class HermesPlugin:
                 print("  Run: hermes caelterra setup")
 
     def _update_check(self, args: Any) -> None:  # noqa: ARG002
-        """Handler for 'hermes <name> update --check'."""
+        """Handler for 'hermes <name> update --check'.
+
+        Checks for newer plugin versions.  For git-installed plugins
+        this compares against the remote.  For pip-installed plugins
+        it reports the installed version and suggests ``pip install --upgrade``.
+        """
         project_dir = str(self.plugin_dir.resolve())
 
         if not git_utils.is_git_repo(project_dir):
-            print("! Not a git repository — cannot check for updates.")
-            print("  If installed from a tarball, re-install from source.")
+            _print_pip_upgrade_instructions(self.name)
             return
 
         remote_url = git_utils.get_remote_url(project_dir)
         if not remote_url:
-            print("! No remote 'origin' configured — cannot check for updates.")
+            _print_pip_upgrade_instructions(self.name)
             return
 
         print(f"🔍 Checking for {self.name.title()} updates...")
@@ -440,88 +451,80 @@ class HermesPlugin:
             print(f"\n✅ {self.name.title()} is up to date.")
 
     def _update_pull(self, args: Any) -> None:  # noqa: ARG002
-        """Handler for 'hermes <name> update'."""
+        """Handler for 'hermes <name> update'.
+
+        Always refreshes bundled skills and syncs profiles, even when
+        the plugin was installed via pip (no git repo).  Git pull is
+        attempted opportunistically and skipped when not applicable.
+        """
         project_dir = str(self.plugin_dir.resolve())
 
-        if not git_utils.is_git_repo(project_dir):
-            print("! Not a git repository — cannot update.")
-            return
-
-        remote_url = git_utils.get_remote_url(project_dir)
-        if not remote_url:
-            print("! No remote 'origin' configured — cannot update.")
-            return
-
         print(f"📦 Updating {self.name.title()}...")
-        print(f"   Remote: {remote_url}")
 
-        # Check for uncommitted changes first
-        try:
-            raw_status = subprocess.check_output(
-                ["git", "-C", project_dir, "status", "--porcelain"],
-                text=True,
-            ).strip()
-        except subprocess.CalledProcessError:
-            raw_status = ""
+        # ── Try git pull (optional — skipped for pip installs) ──────
+        did_pull = False
+        if git_utils.is_git_repo(project_dir):
+            remote_url = git_utils.get_remote_url(project_dir)
+            if remote_url:
+                print(f"   Remote: {remote_url}")
 
-        if raw_status:
-            print("\n! You have uncommitted changes. Stash or commit them first:")
-            for line in raw_status.splitlines():
-                print(f"   {line}")
-            print(f"\n  Then run: hermes {self.name} update")
-            return
+                # Guard against uncommitted changes
+                try:
+                    raw_status = subprocess.check_output(
+                        ["git", "-C", project_dir, "status", "--porcelain"],
+                        text=True,
+                    ).strip()
+                except subprocess.CalledProcessError:
+                    raw_status = ""
+                if raw_status:
+                    print(
+                        "\n! You have uncommitted changes."
+                        " Stash or commit them first:"
+                    )
+                    for line in raw_status.splitlines():
+                        print(f"   {line}")
+                    print(f"\n  Then run: hermes {self.name} update")
+                    # Don't return — still refresh skills below
+                else:
+                    # Fetch and pull
+                    print("   Fetching remote refs...", end=" ", flush=True)
+                    fetch_result = git_utils.fetch_remote(project_dir)
+                    print("✓" if fetch_result["success"] else "✗")
 
-        # Fetch first so we can show what's coming
-        print("   Fetching remote refs...", end=" ", flush=True)
-        fetch_result = git_utils.fetch_remote(project_dir)
-        print("✓" if fetch_result["success"] else "✗")
+                    if fetch_result["success"]:
+                        info = git_utils.get_ahead_behind(project_dir)
+                        behind = info.get("behind", 0)
+                        local_head = git_utils.get_local_head(project_dir)
+                        print(f"   Local:  {local_head[:12] if local_head else 'unknown'}")
 
-        if not fetch_result["success"]:
-            print(f"   Fetch failed: {fetch_result['message']}")
-            return
+                        if behind == 0:
+                            print("   Remote: already up to date")
+                        else:
+                            print(f"   Pulling {behind} new commit(s)...")
+                            result = git_utils.pull_branch(project_dir)
+                            if result["success"]:
+                                after = result.get("after", "")
+                                print(f"   After:  {after[:12] if after else 'unknown'}")
+                                did_pull = True
+                            else:
+                                print(f"\n   ✗ Pull failed: {result['message']}")
+            else:
+                print("   ! No remote — skipping git update")
+        else:
+            print("   ℹ pip install — skipping git update")
 
-        info = git_utils.get_ahead_behind(project_dir)
-        behind = info.get("behind", 0)
+        # ── Always refresh skills and sync profiles ─────────────────
+        print("\n📚 Updating bundled skills...")
 
-        local_head = git_utils.get_local_head(project_dir)
-        print(f"\n   Before: {local_head[:12] if local_head else 'unknown'}")
-
-        if behind == 0:
-            print("   After:  already up to date")
-            print("\n📚 Refreshing bundled skills...")
-            skills.install_bundled_skills(self.plugin_dir)
-            self._sync_installed_profiles("already up to date — refreshing")
-            print(f"\n{'━' * 40}")
-            print(f"✅ {self.name.title()} is up to date.")
-            return
-
-        print(f"   Pulling {behind} new commit(s)...")
-        result = git_utils.pull_branch(project_dir)
-
-        if not result["success"]:
-            print(f"\n✗ Update failed: {result['message']}")
-            print("  If the upstream force-pushed, reset with:")
-            print("    git reset --hard origin/main")
-            print("  (This discards local changes to the plugin.)")
-            return
-
-        after = result.get("after", "")
-        print(f"   After:  {after[:12] if after else 'unknown'}")
-
-        # Detect and remove stale skills
+        # Remove skills that no longer exist in the plugin source
         after_skills = skills.get_bundled_skill_names(self.plugin_dir)
         skills.remove_stale_skills(self.plugin_dir, after_skills)
 
-        # Update remaining skills — always (global operation)
-        print("\n📚 Updating bundled skills...")
         skills.install_bundled_skills(self.plugin_dir)
-
-        # Sync profiles
-        self._sync_installed_profiles("updated")
+        self._sync_installed_profiles("updated" if did_pull else "refreshed")
 
         print(f"\n{'━' * 40}")
-        print(f"✅ {self.name.title()} updated successfully!")
-        print("   Restart any running Hermes sessions to see changes.")
+        print(f"✅ {self.name.title()} update complete.")
         print(f"   Check status: hermes {self.name} status")
 
     # ── CLI command dispatch ────────────────────────────────────────
