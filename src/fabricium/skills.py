@@ -109,20 +109,12 @@ def install_bundled_skills(plugin_dir: Path, target_dir: Path | None = None) -> 
     for child in sorted(skills_src.iterdir()):
         if not is_skill_dir(child):
             continue
-        skill_md = child / "SKILL.md"
         skill_name = child.name
-        dst = target_dir / skill_name / "SKILL.md"
-
-        if dst.exists():
-            if dst.read_text() == skill_md.read_text():
-                continue  # already up to date — silent
-            dst.write_text(skill_md.read_text())
-            continue
+        dst_dir = target_dir / skill_name
 
         try:
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            dst.write_text(skill_md.read_text())
-            print(f"  ✓ Skill '{skill_name}' installed to {dst}")
+            shutil.copytree(child, dst_dir, dirs_exist_ok=True)
+            print(f"  ✓ Skill '{skill_name}' installed to {dst_dir}")
         except OSError as e:
             print(f"  ! Could not install skill '{skill_name}': {e}")
             all_ok = False

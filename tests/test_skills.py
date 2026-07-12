@@ -58,6 +58,26 @@ class TestInstallBundledSkills:
         result = skills.install_bundled_skills(tmp_plugin_dir)
         assert result is True
 
+    def test_copies_auxiliary_skill_files(self, tmp_plugin_dir):
+        """install_bundled_skills copies REFERENCES, scripts, and other files."""
+        # Add auxiliary files to skill-a
+        skill_dir = tmp_plugin_dir / "skills" / "skill-a"
+        (skill_dir / "references").mkdir()
+        (skill_dir / "references" / "api.md").write_text("# API\n")
+        (skill_dir / "scripts").mkdir()
+        (skill_dir / "scripts" / "setup.sh").write_text("#!/bin/bash\necho setup\n")
+
+        target = tmp_plugin_dir.parent / "skills"
+        skills.install_bundled_skills(tmp_plugin_dir, target)
+
+        dst = target / "skill-a"
+        assert dst.is_dir()
+        assert (dst / "SKILL.md").exists()
+        assert (dst / "references").is_dir()
+        assert (dst / "references" / "api.md").read_text() == "# API\n"
+        assert (dst / "scripts").is_dir()
+        assert (dst / "scripts" / "setup.sh").read_text() == "#!/bin/bash\necho setup\n"
+
 
 class TestRemoveStaleSkills:
     def test_no_stale_when_all_match(self, tmp_plugin_dir):
