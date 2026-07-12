@@ -512,15 +512,11 @@ class SkillEvalHarness:
     def _init_workspace(self, task: EvalTask) -> str:
         ws = f"{self.config.workspace_base}/{task.workspace_subdir}"
         _docker_ok(self._container, "mkdir", "-p", self.config.workspace_base)
-        _docker_ok(self._container, "chown", "-R", "hermes:hermes", self.config.workspace_base)
         _docker_ok(self._container, "mkdir", "-p", ws)
         for rel, content in task.seed_files.items():
             fp = f"{ws}/{rel}"
             _docker_ok(self._container, "mkdir", "-p", str(Path(fp).parent))
             _docker_write_file(self._container, fp, content)
-        # Hermes agent runs as the 'hermes' user; workspace is created by
-        # docker exec (root).  chown so the agent can read/write freely.
-        _docker_ok(self._container, "chown", "-R", "hermes:hermes", ws)
         _docker_ok(self._container, "git", "init", workdir=ws)
         _docker_ok(
             self._container, "git", "config", "user.email", "eval@fabricium.test", workdir=ws
@@ -528,6 +524,10 @@ class SkillEvalHarness:
         _docker_ok(self._container, "git", "config", "user.name", "Fabricium Eval", workdir=ws)
         _docker_ok(self._container, "git", "add", "-A", workdir=ws)
         _docker_ok(self._container, "git", "commit", "-m", "init", workdir=ws)
+        # Hermes agent runs as the 'hermes' user; everything above is created
+        # by docker exec (root).  chown last so .git, seed files, and the
+        # working tree are all accessible to the agent.
+        _docker_ok(self._container, "chown", "-R", "hermes:hermes", self.config.workspace_base)
         return ws
 
     def _reset_workspace(self, task: EvalTask, ws: str) -> None:
