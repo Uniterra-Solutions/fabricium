@@ -1,0 +1,3 @@
+name: fabricium-test-plugin
+version: "0.1.0"
+description: "Minimal test plugin for fabricium integration tests."

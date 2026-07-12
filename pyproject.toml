@@ -29,6 +29,10 @@ select = ["E", "F", "I", "N", "W"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "integration: tests that require a Docker-based Hermes environment",
+    "fabricium_plugin_name: override plugin name for integration tests",
+]
 
 [tool.mypy]
 strict = true
