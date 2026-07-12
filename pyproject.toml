@@ -1,6 +1,6 @@
 [project]
 name = "fabricium"
-version = "0.1.2"
+version = "0.1.3"
 description = "Fabricium — Shared Hermes plugin infrastructure (CLI lifecycle, bundled skills, Git self-update, state persistence)"
 requires-python = ">=3.10"
 license = { text = "MIT" }

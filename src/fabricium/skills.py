@@ -70,34 +70,40 @@ def remove_stale_skills(plugin_dir: Path, after_skills: set[str]) -> None:
         print("  ⏭  Skipped stale skill removal")
 
 
-def install_bundled_skills(plugin_dir: Path) -> bool:
-    """Copy bundled skills to the global skills dir for visibility.
+def install_bundled_skills(plugin_dir: Path, target_dir: Path | None = None) -> bool:
+    """Copy bundled skills to *target_dir*.
+
+    When *target_dir* is ``None`` (the default), skills are installed to the
+    global ``~/.hermes/skills/`` directory for backwards compatibility.
+    Pass a profile-specific directory to install skills per-profile.
 
     Returns True if all skills were installed successfully.
     """
-    skills_dir = plugin_dir / "skills"
-    if not skills_dir.is_dir():
-        print("  ! No bundled skills directory found")
+    skills_src = plugin_dir / "skills"
+    if not skills_src.is_dir():
         return False
 
+    if target_dir is None:
+        target_dir = _get_global_hermes_home() / "skills"
+
     all_ok = True
-    for child in sorted(skills_dir.iterdir()):
+    for child in sorted(skills_src.iterdir()):
         if not is_skill_dir(child):
             continue
         skill_md = child / "SKILL.md"
         skill_name = child.name
-        dst = _get_global_hermes_home() / "skills" / skill_name / "SKILL.md"
+        dst = target_dir / skill_name / "SKILL.md"
 
         if dst.exists():
             if dst.read_text() == skill_md.read_text():
-                print(f"  ✓ Skill '{skill_name}' already installed and up to date")
-                continue
+                continue  # already up to date — silent
+            dst.write_text(skill_md.read_text())
+            continue
 
         try:
             dst.parent.mkdir(parents=True, exist_ok=True)
             dst.write_text(skill_md.read_text())
             print(f"  ✓ Skill '{skill_name}' installed to {dst}")
-            print(f"    Load via: skill_view('{skill_name}')")
         except OSError as e:
             print(f"  ! Could not install skill '{skill_name}': {e}")
             all_ok = False

@@ -237,6 +237,11 @@ class HermesPlugin:
 
             print(f"\n📁 Profile: {profile_name}")
 
+            # Install bundled skills to this profile's skills directory
+            skills_target = profile_dir / "skills"
+            print("  📚 Installing bundled skills...")
+            skills.install_bundled_skills(self.plugin_dir, skills_target)
+
             if info.get("soul_md"):
                 print("  🧠 Updating SOUL.md...")
                 self._apply_soul_md(profile_name)
@@ -276,7 +281,8 @@ class HermesPlugin:
         print("\n📚 Bundled Skills")
         with_skills = prompts.prompt_yes_no("  Install bundled skills?", default=True)
         if with_skills:
-            skills.install_bundled_skills(self.plugin_dir)
+            profile_dir = self._get_profile_dir(profile_name)
+            skills.install_bundled_skills(self.plugin_dir, profile_dir / "skills")
         else:
             print("  ⏭  Skipped skill installation")
 
@@ -338,7 +344,8 @@ class HermesPlugin:
                 continue
 
             print()
-            skills.install_bundled_skills(self.plugin_dir)
+            profile_dir = self._get_profile_dir(profile_name)
+            skills.install_bundled_skills(self.plugin_dir, profile_dir / "skills")
 
             soul_ok = True
             if mode == "soul_md":
@@ -514,13 +521,11 @@ class HermesPlugin:
             print("   ℹ pip install — skipping git update")
 
         # ── Always refresh skills and sync profiles ─────────────────
-        print("\n📚 Updating bundled skills...")
-
         # Remove skills that no longer exist in the plugin source
+        # (global cleanup — per-profile install happens in _sync_installed_profiles)
         after_skills = skills.get_bundled_skill_names(self.plugin_dir)
         skills.remove_stale_skills(self.plugin_dir, after_skills)
 
-        skills.install_bundled_skills(self.plugin_dir)
         self._sync_installed_profiles("updated" if did_pull else "refreshed")
 
         print(f"\n{'━' * 40}")
