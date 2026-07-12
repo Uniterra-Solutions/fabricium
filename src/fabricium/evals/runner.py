@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 import sys
 from datetime import datetime
-from pathlib import Path
 
 from .config import load_config
 from .example_rubrics import get_jovaltus_rubric
@@ -48,8 +47,8 @@ def main() -> None:
     )
 
     # ── Run each task ─────────────────────────────────────────────
-    out_dir = Path("eval_results")
-    out_dir.mkdir(exist_ok=True)
+    out_dir = config.output_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -85,7 +84,7 @@ def main() -> None:
             print(f"    jovaltus: {lift.get('skill_score', '?')}")
 
     print(f"\n{'=' * 60}")
-    print("Done. Reports in eval_results/")
+    print(f"Done. Reports in {out_dir}/")
     print(f"{'=' * 60}")
 
 

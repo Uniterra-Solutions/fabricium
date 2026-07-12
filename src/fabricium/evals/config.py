@@ -56,6 +56,7 @@ class EvalConfig:
 
     # Paths
     jovaltus_plugin_dir: Path
+    output_dir: Path = field(default_factory=lambda: Path.cwd() / "eval_results")
     fabricium_src: Path | None = None
 
     # Docker
@@ -150,6 +151,9 @@ def load_config() -> EvalConfig:
         Per-run timeout in seconds (default: ``900``).
     ``EVAL_KEEP``
         Set to ``1`` to keep the Docker container after completion.
+    ``EVAL_OUTPUT_DIR``
+        Directory for eval reports (default: ``./eval_results`` relative
+        to the current working directory).
     """
     # Candidate
     candidate = _model_from_prefix("CANDIDATE")
@@ -212,6 +216,9 @@ def load_config() -> EvalConfig:
         candidate=candidate,
         judge=judge,
         jovaltus_plugin_dir=jovaltus_dir,
+        output_dir=Path(
+            os.environ.get("EVAL_OUTPUT_DIR", str(Path.cwd() / "eval_results"))
+        ).resolve(),
         fabricium_src=fabricium_src,
         docker_image=os.environ.get("EVAL_DOCKER_IMAGE", "nousresearch/hermes-agent:latest"),
         docker_network=os.environ.get("EVAL_DOCKER_NETWORK", "host"),
