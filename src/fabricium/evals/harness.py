@@ -685,14 +685,24 @@ class SkillEvalHarness:
         runs: list[AgentRunResult],
         judge: JudgeClient,
     ) -> list[JudgeReport]:
-        """Judge each profile's output. Returns one verdict per profile."""
-        verdicts: list[JudgeReport] = []
-        profiles_seen: set[str] = set()
+        """Judge each profile's output. Returns one verdict per profile.
 
+        Verdicts are returned in profile registration order (bare first,
+        skill profile second) so that downstream code can rely on a
+        stable ordering.
+        """
+        # Build a map of last run per profile (reversed to pick the most recent)
+        last_run_by_profile: dict[str, AgentRunResult] = {}
         for run in reversed(runs):
-            if run.profile_name in profiles_seen:
+            if run.profile_name not in last_run_by_profile:
+                last_run_by_profile[run.profile_name] = run
+
+        # Judge in profile registration order for stable verdict ordering
+        verdicts: list[JudgeReport] = []
+        for prof in self._profiles:
+            run = last_run_by_profile.get(prof.name)
+            if run is None:
                 continue
-            profiles_seen.add(run.profile_name)
 
             report = judge.evaluate(
                 task_prompt=task.natural_prompt or task.explicit_prompt,
@@ -726,13 +736,24 @@ class SkillEvalHarness:
                 lifts[tid] = {"error": "need ≥2 verdicts for lift"}
                 continue
 
-            bare = verdicts[0].weighted_total
-            skill = verdicts[1].weighted_total if len(verdicts) > 1 else 0.0
+            # Look up verdicts by profile name — never by positional index
+            verdict_by_profile: dict[str, JudgeReport] = {v.profile_name: v for v in verdicts}
+            bare_profile = self._profiles[0].name
+            skill_profile = self._profiles[1].name
+            bare_verdict = verdict_by_profile.get(bare_profile)
+            skill_verdict = verdict_by_profile.get(skill_profile)
+
+            if bare_verdict is None or skill_verdict is None:
+                lifts[tid] = {"error": f"missing verdicts for {bare_profile}/{skill_profile}"}
+                continue
+
+            bare = bare_verdict.weighted_total
+            skill = skill_verdict.weighted_total
 
             dim_deltas: dict[str, float] = {}
             for d in rubric.universal_dimensions:
                 dim_deltas[d.id] = round(
-                    verdicts[1].dimensions.get(d.id, 0) - verdicts[0].dimensions.get(d.id, 0),
+                    skill_verdict.dimensions.get(d.id, 0) - bare_verdict.dimensions.get(d.id, 0),
                     2,
                 )
 

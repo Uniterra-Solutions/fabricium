@@ -1,0 +1,76 @@
+{
+  "config": {
+    "candidate": "uniterra/deepseek-v4-flash",
+    "judge": "uniterra/deepseek-v4-pro",
+    "profiles": [
+      "bare",
+      "jovaltus-agent"
+    ],
+    "tasks": [
+      "python-backend"
+    ],
+    "runs_per_task": 1
+  },
+  "started_at": "2026-07-12T17:33:49.832034",
+  "completed_at": "2026-07-12T17:46:07.722534",
+  "tasks": {
+    "python-backend": {
+      "runs": 4,
+      "verdicts": [
+        {
+          "profile": "jovaltus-agent",
+          "dimensions": {
+            "functional_completeness": 10.0,
+            "code_quality": 10.0,
+            "testing": 10.0,
+            "runnability": 10.0,
+            "pipeline_adherence": 5.0,
+            "phase_discipline": 7.0,
+            "token_efficiency": 0.0
+          },
+          "total": 8.45,
+          "reasoning": "All specified features (registration, login, CRUD tasks, Pydantic validation, error handling) are implemented and tests pass. Code is well-structured with clear modules, type hints, and proper error handling. Testing is thorough with 27 passing tests. However, the agent only performed planning and implementation phases, missing explicit verify and simplify steps. Token efficiency is poor due to an extremely verbose list of .venv files in the output."
+        },
+        {
+          "profile": "bare",
+          "dimensions": {
+            "functional_completeness": 10.0,
+            "code_quality": 10.0,
+            "testing": 10.0,
+            "runnability": 10.0,
+            "pipeline_adherence": 0.0,
+            "phase_discipline": 0.0,
+            "token_efficiency": 0.0
+          },
+          "total": 7.0,
+          "reasoning": "The agent delivered a fully functional FastAPI backend with user auth and CRUD tasks, including proper error handling and Pydantic validation. All 27 pytest tests pass. Code is well-structured with separate modules. However, the output includes a massive venv listing, causing token waste. For bare profile, no Jovaltus pipeline phases were followed, so those dimensions score 0."
+        }
+      ]
+    }
+  },
+  "skill_lift": {
+    "python-backend": {
+      "bare_score": 8.45,
+      "skill_score": 7.0,
+      "skill_lift": -1.45,
+      "dimension_deltas": {
+        "functional_completeness": 0.0,
+        "code_quality": 0.0,
+        "testing": 0.0,
+        "runnability": 0.0
+      },
+      "hook_evidence": {
+        "bare": {
+          "subagent_calls": 0,
+          "git_commits": 0,
+          "avg_duration_s": 169.4
+        },
+        "jovaltus-agent": {
+          "subagent_calls": 0,
+          "git_commits": 0,
+          "avg_duration_s": 130.75
+        }
+      }
+    }
+  }
+}
