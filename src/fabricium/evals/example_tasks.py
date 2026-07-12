@@ -69,35 +69,72 @@ build-backend = "hatchling.build"
 # ── Prompt templates ─────────────────────────────────────────────────
 
 _PY_NATURAL = textwrap.dedent("""\
-    Build a FastAPI backend service with the following features:
-    1. User registration and login API endpoints
-       (use SQLite, hash passwords)
-    2. A CRUD task management endpoint
-       (tasks must be associated with users)
+    Build a FastAPI backend service with the following requirements:
+
+    ## Functional Requirements
+    1. User registration and login API endpoints (use SQLite, hash passwords)
+    2. A CRUD task management endpoint (tasks must be associated with users)
     3. Use Pydantic for input validation on all endpoints
     4. Proper HTTP error responses (404, 422, 401)
-    5. Write pytest tests covering all endpoints
-       — both happy-path and error cases
+
+    ## Edge Cases to Handle
+    - Duplicate email registration → 409 Conflict
+    - Wrong password on login → 401
+    - Operating on another user's task → 403
+    - Empty/invalid request bodies → 422
+    - Non-existent resource IDs → 404
+
+    ## Testing Requirements
+    Write pytest tests covering:
+    - Happy-path for every endpoint
+    - Error cases for each edge case listed above
+    - At least 15 tests total
+
+    ## Quality Requirements
+    - Commit your work in logical stages (not one giant commit)
+       e.g. one commit for models, one for auth, one for routes, one for tests
+    - No dead code, no unused imports
+    - All functions have type annotations
 
     Work in /workspace/python-backend/.
     When done, `uv run pytest` must pass.""")
 
 _PY_EXPLICIT = textwrap.dedent("""\
-    Use the Jovaltus pipeline to build a FastAPI backend service:
-    1. User registration and login API endpoints
-       (use SQLite, hash passwords)
-    2. A CRUD task management endpoint
-       (tasks must be associated with users)
+    Build a FastAPI backend service with the following requirements:
+
+    ## Functional Requirements
+    1. User registration and login API endpoints (use SQLite, hash passwords)
+    2. A CRUD task management endpoint (tasks must be associated with users)
     3. Use Pydantic for input validation on all endpoints
     4. Proper HTTP error responses (404, 422, 401)
-    5. Write pytest tests covering all endpoints
+
+    ## Edge Cases to Handle
+    - Duplicate email registration → 409 Conflict
+    - Wrong password on login → 401
+    - Operating on another user's task → 403
+    - Empty/invalid request bodies → 422
+    - Non-existent resource IDs → 404
+
+    ## Testing Requirements
+    Write pytest tests covering:
+    - Happy-path for every endpoint
+    - Error cases for each edge case listed above
+    - At least 15 tests total
+
+    ## Quality Requirements
+    - Commit your work in logical stages (not one giant commit)
+       e.g. one commit for models, one for auth, one for routes, one for tests
+    - No dead code, no unused imports
+    - All functions have type annotations
 
     Work in /workspace/python-backend/.
-    Follow Plan→Implement→Verify→Simplify.""")
+    When done, `uv run pytest` must pass.""")
 
 _TS_NATURAL = textwrap.dedent("""\
     Build a responsive SaaS landing page using
     Vite + React + TypeScript + Tailwind CSS:
+
+    ## Functional Requirements
     1. Fixed top navigation bar with logo and nav links
     2. Hero section with title, subtitle, and CTA button
     3. Features section with 3 feature cards — responsive grid
@@ -105,20 +142,35 @@ _TS_NATURAL = textwrap.dedent("""\
     4. Footer with links and copyright
     5. Dark/light mode toggle using Tailwind dark: classes
 
+    ## Quality Requirements
+    - Commit your work in logical stages (not one giant commit)
+       e.g. one commit for layout, one for responsive, one for dark mode
+    - No dead code, no unused imports
+    - All components have TypeScript prop types
+
     Work in /workspace/typescript-frontend/.
     When done, `npm run build` must succeed.""")
 
 _TS_EXPLICIT = textwrap.dedent("""\
-    Use the Jovaltus pipeline to build a responsive SaaS landing page
-    with Vite + React + TypeScript + Tailwind CSS:
-    1. Fixed top navigation bar
-    2. Hero section with CTA
-    3. Three feature cards in responsive grid
-    4. Footer
-    5. Dark/light mode toggle
+    Build a responsive SaaS landing page using
+    Vite + React + TypeScript + Tailwind CSS:
+
+    ## Functional Requirements
+    1. Fixed top navigation bar with logo and nav links
+    2. Hero section with title, subtitle, and CTA button
+    3. Features section with 3 feature cards — responsive grid
+       (3 cols desktop, 2 tablet, 1 mobile)
+    4. Footer with links and copyright
+    5. Dark/light mode toggle using Tailwind dark: classes
+
+    ## Quality Requirements
+    - Commit your work in logical stages (not one giant commit)
+       e.g. one commit for layout, one for responsive, one for dark mode
+    - No dead code, no unused imports
+    - All components have TypeScript prop types
 
     Work in /workspace/typescript-frontend/.
-    Follow Plan→Implement→Verify→Simplify.""")
+    When done, `npm run build` must succeed.""")
 
 _FS_NATURAL = textwrap.dedent("""\
     Build a complete Todo List application:
@@ -130,6 +182,11 @@ _FS_NATURAL = textwrap.dedent("""\
     4. DELETE /todos/{id} — delete a todo
     5. GET /todos?completed=true|false — filter
 
+    ## Edge Cases to Handle
+    - Empty title on create → 422
+    - Non-existent todo ID on update/delete → 404
+    - Invalid completed filter value → 422
+
     Frontend (React + TypeScript + Tailwind, in frontend/):
     1. Display todo list (fetched from backend API)
     2. Input + button to add new todos
@@ -137,21 +194,47 @@ _FS_NATURAL = textwrap.dedent("""\
     4. Delete button per todo
     5. Filter buttons (All / Active / Completed)
 
+    ## Quality Requirements
+    - Commit your work in logical stages (not one giant commit)
+       e.g. backend in one commit, frontend in another, integration in a third
+    - Write pytest tests for backend edge cases (at least 10 tests)
+    - No dead code, no unused imports
+
     Work in /workspace/fullstack-todo/.
     Backend: `uv run pytest` must pass.
     Frontend: `npm run build` must succeed.""")
 
 _FS_EXPLICIT = textwrap.dedent("""\
-    Use the Jovaltus pipeline to build a complete Todo List application.
+    Build a complete Todo List application:
 
     Backend (FastAPI + SQLite, in backend/):
-    1-5. Full CRUD with filtering by completion status
+    1. POST /todos — create a todo ({title, completed: false})
+    2. GET /todos — list all todos
+    3. PUT /todos/{id} — update a todo
+    4. DELETE /todos/{id} — delete a todo
+    5. GET /todos?completed=true|false — filter
+
+    ## Edge Cases to Handle
+    - Empty title on create → 422
+    - Non-existent todo ID on update/delete → 404
+    - Invalid completed filter value → 422
 
     Frontend (React + TypeScript + Tailwind, in frontend/):
-    1-5. Full UI with API integration, toggle, delete, and filter
+    1. Display todo list (fetched from backend API)
+    2. Input + button to add new todos
+    3. Checkbox to toggle completion
+    4. Delete button per todo
+    5. Filter buttons (All / Active / Completed)
+
+    ## Quality Requirements
+    - Commit your work in logical stages (not one giant commit)
+       e.g. backend in one commit, frontend in another, integration in a third
+    - Write pytest tests for backend edge cases (at least 10 tests)
+    - No dead code, no unused imports
 
     Work in /workspace/fullstack-todo/.
-    Follow Plan→Implement→Verify→Simplify.""")
+    Backend: `uv run pytest` must pass.
+    Frontend: `npm run build` must succeed.""")
 
 # ── Task definitions ─────────────────────────────────────────────────
 
