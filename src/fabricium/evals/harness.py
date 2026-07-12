@@ -700,22 +700,22 @@ class SkillEvalHarness:
         # Judge in profile registration order for stable verdict ordering
         verdicts: list[JudgeReport] = []
         for prof in self._profiles:
-            run = last_run_by_profile.get(prof.name)
-            if run is None:
+            maybe_run = last_run_by_profile.get(prof.name)
+            if maybe_run is None:
                 continue
 
             report = judge.evaluate(
                 task_prompt=task.natural_prompt or task.explicit_prompt,
-                profile_name=run.profile_name,
-                file_tree=run.file_tree,
-                file_contents=self._fmt_fc(run.file_contents),
-                build_results=run.build_results,
+                profile_name=maybe_run.profile_name,
+                file_tree=maybe_run.file_tree,
+                file_contents=self._fmt_fc(maybe_run.file_contents),
+                build_results=maybe_run.build_results,
                 trace_summary=(
-                    f"exit_code={run.exit_code} "
-                    f"duration={run.duration_seconds}s "
-                    f"subagent_calls={run.subagent_count} "
-                    f"git_commits={len(run.git_commits)} "
-                    f"stage_keywords={run.stage_keywords_found}"
+                    f"exit_code={maybe_run.exit_code} "
+                    f"duration={maybe_run.duration_seconds}s "
+                    f"subagent_calls={maybe_run.subagent_count} "
+                    f"git_commits={len(maybe_run.git_commits)} "
+                    f"stage_keywords={maybe_run.stage_keywords_found}"
                 ),
                 rubric=rubric,
             )
