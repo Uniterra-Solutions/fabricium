@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 def _print_pip_upgrade_instructions(name: str) -> None:
     """Print upgrade instructions for pip-installed plugins."""
-    print(f"🔍 pip-installed plugin — check for updates with:")
+    print("🔍 pip-installed plugin — check for updates with:")
     print(f"   pip install --upgrade {name}")
     print(f"   Then run: hermes {name} update  (to refresh skills)")
 
