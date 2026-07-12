@@ -62,3 +62,43 @@ class TestCliGracefulErrors:
 
         r2 = hermes_test_env.run_cli(PLUGIN, "setup", timeout=90)
         assert_exit_code(r2)
+
+
+class TestSelfBootstrap:
+    """Verify plugins self-bootstrap their fabricium dependency.
+
+    When Hermes recreates its venv (e.g. during an update), plugin-only
+    dependencies like fabricium are lost.  The _ensure_fabricium() guard
+    in the plugin's __init__.py must detect the missing import and
+    ``pip install`` fabricium before the plugin registers its CLI.
+    """
+
+    def test_plugin_self_bootstraps_missing_fabricium(self) -> None:
+        """Plugin CLI works even when fabricium is NOT pre-installed."""
+        import shutil
+        import tempfile
+        from pathlib import Path
+
+        from fabricium.testing.harness import HermesConfig, HermesDockerTestEnv
+
+        plugin_dir = Path(__file__).parent / "test_plugin"
+        fabricium_src = Path(__file__).parent.parent.parent
+
+        config = HermesConfig()
+        env = HermesDockerTestEnv(
+            plugin_name=PLUGIN,
+            plugin_dir=plugin_dir,
+            fabricium_src=fabricium_src,
+            config=config,
+        )
+        try:
+            # Start WITHOUT pre-installing fabricium — the plugin must self-bootstrap
+            env.start(skip_fabricium_install=True)
+
+            # Verify the CLI command is registered (proves fabricium was bootstrapped)
+            result = env.run_cli(PLUGIN, "status")
+            assert_exit_code(result)
+            assert result.contains("No profiles in installation state")
+
+        finally:
+            env.stop()
