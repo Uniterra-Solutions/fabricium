@@ -532,6 +532,23 @@ class HermesPlugin:
         else:
             print("   ℹ pip install — skipping git update")
 
+        # ── Update fabricium dependency ───────────────────────────────
+        print("   📦 Updating fabricium dependency...", end=" ", flush=True)
+        try:
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "--upgrade", "fabricium"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            print("✓")
+        except subprocess.CalledProcessError as e:
+            print("✗")
+            print(f"   ! Could not update fabricium: {e.stderr.strip()}")
+        except FileNotFoundError:
+            print("✗")
+            print("   ! pip not found — cannot update fabricium")
+
         # ── Always refresh skills and sync profiles ─────────────────
         self._sync_installed_profiles("updated" if did_pull else "refreshed")
 
