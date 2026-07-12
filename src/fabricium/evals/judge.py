@@ -415,7 +415,7 @@ class JudgeClient:
             profile_name=profile_name,
             dimensions=dimensions,
             reasoning_summary=str(data.get("reasoning_summary", "")),
-            weighted_total=round(total, 2),
+            weighted_total=round(total * 10, 1),
         )
 
 
