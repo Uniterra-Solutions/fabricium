@@ -267,7 +267,7 @@ def assert_update_check_responded(result: CliResult) -> None:
     """Assert ``update --check`` produced a meaningful diagnostic.
 
     Accepts any of: up-to-date, behind remote, ahead of remote,
-    not-a-git-repo, or no-remote-configured.
+    not-a-git-repo, no-remote-configured, or pip-installed.
     """
     assert_stdout_contains_any(
         result,
@@ -278,6 +278,7 @@ def assert_update_check_responded(result: CliResult) -> None:
             "Not a git repository",
             "No remote 'origin' configured",
             "Checking for",
+            "pip-installed plugin",
         ],
     )
 

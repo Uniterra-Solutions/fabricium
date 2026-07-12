@@ -183,6 +183,10 @@ class TestUpdateAssertions:
         r = _r(stdout="🔍 Checking for Test updates...")
         assert_update_check_responded(r)
 
+    def test_update_check_pip_installed(self):
+        r = _r(stdout="🔍 pip-installed plugin — check for updates with:\n   pip install --upgrade test")
+        assert_update_check_responded(r)
+
     def test_up_to_date_with_name(self):
         r = _r(stdout="✅ Jovaltus is up to date.")
         assert_up_to_date(r, "jovaltus")
