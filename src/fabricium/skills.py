@@ -24,44 +24,17 @@ def get_bundled_skill_names(plugin_dir: Path) -> set[str]:
     return {child.name for child in sorted(skills_dir.iterdir()) if is_skill_dir(child)}
 
 
-def _remove_installed_skill(skill_name: str) -> bool:
-    """Remove an installed skill from the global skills directory.
 
-    Returns True if the skill was removed or didn't exist.
+
+def remove_stale_from_profile(profile_skills_dir: Path, stale: set[str]) -> None:
+    """Remove skills that are no longer bundled from a profile's skills directory.
+
+    Unlike the old ``remove_stale_skills``, this does NOT scan the filesystem
+    to decide what's stale — the caller provides the exact set of stale skill
+    names derived from the plugin's per-profile state.  Only skills that were
+    *previously recorded as installed by this plugin* are eligible for removal.
     """
-    skill_dir = _get_global_hermes_home() / "skills" / skill_name
-    if not skill_dir.exists():
-        return True
-    try:
-        shutil.rmtree(skill_dir)
-        print(f"  🗑  Removed stale skill '{skill_name}' from global skills")
-        return True
-    except OSError as e:
-        print(f"  ! Could not remove stale skill '{skill_name}': {e}")
-        return False
-
-
-def remove_stale_skills(
-    plugin_dir: Path, after_skills: set[str], target_dir: Path | None = None
-) -> None:
-    """Detect and remove skills that are no longer bundled.
-
-    When *target_dir* is ``None`` (the default), skills are compared
-    against ``~/.hermes/skills/`` for backwards compatibility.
-    Pass a profile-specific directory to scope removal to one profile.
-
-    Any skill in *target_dir* that is NOT in *after_skills* is stale.
-    """
-    if target_dir is None:
-        target_dir = _get_global_hermes_home() / "skills"
-
-    if not target_dir.is_dir():
-        return
-
-    installed = {child.name for child in target_dir.iterdir() if is_skill_dir(child)}
-    stale = installed - after_skills
     if not stale:
-        print("  ✓ No stale skills to remove")
         return
 
     print()
@@ -69,11 +42,51 @@ def remove_stale_skills(
     for name in sorted(stale):
         print(f"    - {name}")
 
-    if prompts.prompt_yes_no("  Remove stale skills?", default=True):
-        for name in sorted(stale):
-            _remove_installed_skill(name)
-    else:
+    if not prompts.prompt_yes_no("  Remove stale skills?", default=True):
         print("  ⏭  Skipped stale skill removal")
+        return
+
+    for name in sorted(stale):
+        _remove_skill_from_dir(profile_skills_dir, name)
+
+
+def _remove_skill_from_dir(skills_dir: Path, skill_name: str) -> None:
+    """Delete a skill directory from *skills_dir*."""
+    skill_path = skills_dir / skill_name
+    if not skill_path.exists():
+        return
+    try:
+        shutil.rmtree(skill_path)
+        print(f"  🗑  Removed stale skill '{skill_name}' from {skills_dir}")
+    except OSError as e:
+        print(f"  ! Could not remove stale skill '{skill_name}': {e}")
+
+
+# === Backward-compat stub (kept for external callers) ===
+
+def remove_stale_skills(
+    plugin_dir: Path, after_skills: set[str], target_dir: Path | None = None
+) -> None:
+    """Legacy stub — prefer state-based ``remove_stale_from_profile``.
+
+    Scans *target_dir* (default ``~/.hermes/skills/``) and flags skills not
+    in *after_skills* as stale.  This can cross-touch other plugins' skills
+    when the directory is shared (e.g. the ``default`` profile's global dir).
+    """
+    if target_dir is None:
+        target_dir = _get_global_hermes_home() / "skills"
+    if not target_dir.is_dir():
+        return
+    installed = {child.name for child in target_dir.iterdir() if is_skill_dir(child)}
+    stale = installed - after_skills
+    if stale:
+        print()
+        print("  📋 Stale skills detected (removed from bundle):")
+        for name in sorted(stale):
+            print(f"    - {name}")
+        if prompts.prompt_yes_no("  Remove stale skills?", default=True):
+            for name in sorted(stale):
+                _remove_skill_from_dir(target_dir, name)
 
 
 def install_bundled_skills(plugin_dir: Path, target_dir: Path | None = None) -> bool:
