@@ -237,8 +237,10 @@ class HermesPlugin:
 
             print(f"\n📁 Profile: {profile_name}")
 
-            # Install bundled skills to this profile's skills directory
+            # Remove stale skills then install bundled skills per-profile
             skills_target = profile_dir / "skills"
+            bundled_names = skills.get_bundled_skill_names(self.plugin_dir)
+            skills.remove_stale_skills(self.plugin_dir, bundled_names, skills_target)
             print("  📚 Installing bundled skills...")
             skills.install_bundled_skills(self.plugin_dir, skills_target)
 
@@ -521,11 +523,6 @@ class HermesPlugin:
             print("   ℹ pip install — skipping git update")
 
         # ── Always refresh skills and sync profiles ─────────────────
-        # Remove skills that no longer exist in the plugin source
-        # (global cleanup — per-profile install happens in _sync_installed_profiles)
-        after_skills = skills.get_bundled_skill_names(self.plugin_dir)
-        skills.remove_stale_skills(self.plugin_dir, after_skills)
-
         self._sync_installed_profiles("updated" if did_pull else "refreshed")
 
         print(f"\n{'━' * 40}")

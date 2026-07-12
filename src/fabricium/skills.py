@@ -41,18 +41,24 @@ def _remove_installed_skill(skill_name: str) -> bool:
         return False
 
 
-def remove_stale_skills(plugin_dir: Path, after_skills: set[str]) -> None:
+def remove_stale_skills(
+    plugin_dir: Path, after_skills: set[str], target_dir: Path | None = None
+) -> None:
     """Detect and remove skills that are no longer bundled.
 
-    Compares currently installed skills against the new set of bundled
-    skills. Any skill installed in ~/.hermes/skills/ that no longer
-    exists in the plugin is stale and gets removed.
+    When *target_dir* is ``None`` (the default), skills are compared
+    against ``~/.hermes/skills/`` for backwards compatibility.
+    Pass a profile-specific directory to scope removal to one profile.
+
+    Any skill in *target_dir* that is NOT in *after_skills* is stale.
     """
-    global_dir = _get_global_hermes_home() / "skills"
-    if not global_dir.is_dir():
+    if target_dir is None:
+        target_dir = _get_global_hermes_home() / "skills"
+
+    if not target_dir.is_dir():
         return
 
-    installed = {child.name for child in global_dir.iterdir() if is_skill_dir(child)}
+    installed = {child.name for child in target_dir.iterdir() if is_skill_dir(child)}
     stale = installed - after_skills
     if not stale:
         print("  ✓ No stale skills to remove")
