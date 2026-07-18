@@ -184,10 +184,7 @@ class TestUpdateAssertions:
         assert_update_check_responded(r)
 
     def test_update_check_pip_installed(self):
-        msg = (
-            "🔍 pip-installed plugin — check for updates with:\n"
-            "   pip install --upgrade test"
-        )
+        msg = "🔍 pip-installed plugin — check for updates with:\n   pip install --upgrade test"
         r = _r(stdout=msg)
         assert_update_check_responded(r)
 

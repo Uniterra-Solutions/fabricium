@@ -6,18 +6,65 @@ Provides load/save helpers for per-plugin state files stored under
 
 import json
 import os
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+# Module-level cache for CLI-resolved Hermes home.
+# Set once per process to avoid repeated subprocess calls.
+_HERMES_HOME_CACHE: Path | None = None
+
+
+def _derive_global_home_from_config_path(config_path: Path) -> Path:
+    """Derive the global Hermes home from a config.yaml path.
+
+    If *config_path* is under ``profiles/<name>/config.yaml``, the
+    global home is two levels up.  Otherwise the global home is the
+    directory containing *config_path*.
+    """
+    parent = config_path.parent
+    if len(parent.parts) >= 2 and parent.parts[-2] == "profiles":
+        return parent.parent.parent
+    return parent
+
+
+def _resolve_hermes_home_via_cli() -> Path | None:
+    """Try to determine the global Hermes home via the ``hermes`` CLI.
+
+    Runs ``hermes config path`` to get the config file location, then
+    derives the global home from it.  Returns ``None`` when the CLI is
+    unavailable or fails.
+    """
+    try:
+        result = subprocess.run(
+            ["hermes", "config", "path"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            config_path = Path(result.stdout.strip()).resolve()
+            return _derive_global_home_from_config_path(config_path)
+    except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError, OSError):
+        pass
+    return None
 
 
 def _get_global_hermes_home() -> Path:
     """Return the global Hermes home directory, not a profile-specific one.
 
-    When running under a profile, HERMES_HOME is set to the profile directory
-    (e.g. ~/.hermes/profiles/<name>/). We need the actual global home
-    (~/.hermes/) for the state file, skills, profiles dir, etc.
+    Resolution order:
+      1. ``HERMES_HOME`` environment variable (fast, always preferred).
+      2. ``hermes config path`` CLI (cross-platform, no hardcoded paths).
+      3. ``Path.home() / ".hermes"`` (Unix/macOS fallback).
+
+    The result is cached at module level so the CLI is called at most
+    once per process.
     """
+    global _HERMES_HOME_CACHE
+
+    # 1. Environment variable — no caching needed, authoritative.
     env_home = os.environ.get("HERMES_HOME")
     if env_home:
         p = Path(env_home).resolve()
@@ -25,7 +72,21 @@ def _get_global_hermes_home() -> Path:
         if len(p.parts) >= 2 and p.parts[-2] == "profiles":
             return p.parent.parent
         return p
-    return Path.home() / ".hermes"
+
+    # 2. Cached result from previous resolutions.
+    if _HERMES_HOME_CACHE is not None:
+        return _HERMES_HOME_CACHE
+
+    # 3. Dynamic CLI resolution (cross-platform).
+    cli_home = _resolve_hermes_home_via_cli()
+    if cli_home is not None:
+        _HERMES_HOME_CACHE = cli_home
+        return cli_home
+
+    # 4. Fallback — Unix/macOS convention.
+    fallback = Path.home() / ".hermes"
+    _HERMES_HOME_CACHE = fallback
+    return fallback
 
 
 def get_state_path(plugin_name: str) -> Path:

@@ -5,6 +5,12 @@ All notable changes to Fabricium will be documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] — 2026-07-18
+
+### Added
+
+- **Dynamic Hermes home resolution via CLI.** `_get_global_hermes_home()` now falls back to `hermes config path` before `Path.home() / ".hermes"`, providing cross-platform path resolution without hardcoded conventions. The CLI result is cached at module level to avoid repeated subprocess calls. New functions: `_derive_global_home_from_config_path()`, `_resolve_hermes_home_via_cli()`.
+
 ## [0.1.6] — 2026-07-12
 
 ### Fixed
