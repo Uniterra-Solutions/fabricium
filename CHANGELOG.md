@@ -5,6 +5,17 @@ All notable changes to Fabricium will be documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — 2026-07-22
+
+### Added
+
+- **Dual git/pip update mechanism.** `hermes <name> update` now supports both git and pip-based updates with `--git` and `--pip` flags. Auto-detection picks the right mode: git when the plugin dir is a git repo with a remote, pip otherwise. Pip mode runs `pip install --upgrade <name>`; if pip is not found, falls back to git with a warning. `--check` in pip mode queries PyPI via `pip install --dry-run --upgrade`.
+
+### Changed
+
+- **`_print_pip_upgrade_instructions` removed.** Replaced by real pip check/upgrade logic in `_update_check_pip()` and `_update_pull_pip()`.
+- **`assert_update_check_responded` now accepts pip-mode output.** Added `"via PyPI"` and `"A newer version is available"` as valid diagnostic patterns.
+
 ## [0.1.7] — 2026-07-18
 
 ### Added
