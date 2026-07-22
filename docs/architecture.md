@@ -14,6 +14,7 @@ graph TD
     HermesCLI["hermes CLI\n(plugin commands)"]
     HermesProf["~/.hermes/\n(profiles, skills, state)"]
     GitRemote["Git Remote\n(plugin updates)"]
+    PyPI["PyPI\n(pip plugin updates)"]
     Docker["Docker\n(testing + eval)"]
     JudgeLLM["Judge LLM\n(eval pipeline)"]
 
@@ -21,6 +22,7 @@ graph TD
     Plugin -->|"register_cli_command()"| HermesCLI
     Plugin -->|"read/write state + skills"| HermesProf
     Plugin -->|"git fetch/pull"| GitRemote
+    Plugin -->|"pip install --upgrade"| PyPI
     Agent -->|"loads installed skills"| HermesProf
     Docker -->|"hermes docker test env"| HermesProf
     Docker -->|"evaluation pipeline"| Agent
@@ -83,14 +85,22 @@ graph TD
 ```
 hermes <name> update
     │
-    ├─► git_utils.is_git_repo()         # Check if git-managed
-    ├─► git_utils.fetch_remote()        # Fetch latest refs
-    ├─► git_utils.get_ahead_behind()    # Compare local vs remote
-    ├─► git_utils.pull_branch()         # Fast-forward pull
+    ├─► _resolve_update_mode()          # --git/--pip or auto-detect
     │
-    ├─► pip install --upgrade fabricium # Auto-update dependency
+    ├── [git path] ──────────────────────
+    │   ├─► git_utils.is_git_repo()
+    │   ├─► git_utils.fetch_remote()
+    │   ├─► git_utils.get_ahead_behind()
+    │   └─► git_utils.pull_branch()
     │
-    └─► _sync_installed_profiles()      # Refresh skills + SOUL.md
+    ├── [pip path] ──────────────────────
+    │   ├─► pip --version               # Check pip available
+    │   ├─► pip install --upgrade <name> # Upgrade the plugin
+    │   └─► (falls back to git if pip missing + user didn't --force)
+    │
+    ├─► pip install --upgrade fabricium  # Auto-update dependency
+    │
+    └─► _sync_installed_profiles()       # Refresh skills + SOUL.md
          ├─► skills.get_bundled_skill_names()
          ├─► skills.remove_stale_from_profile()
          ├─► skills.install_bundled_skills()

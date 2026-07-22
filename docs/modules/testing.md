@@ -52,7 +52,7 @@
 | `assert_no_skills_installed(result)` | No skills installed |
 | `assert_status_shows_profile(result, profile_name, with_soul_md=True)` | Status table entry |
 | `assert_status_shows_no_profiles(result, plugin_name)` | No profiles installed |
-| `assert_update_check_responded(result)` | Update check produced output |
+| `assert_update_check_responded(result)` | Update check produced diagnostic (git or pip) |
 | `assert_up_to_date(result, plugin_name="")` | Up-to-date message |
 | `assert_behind_remote(result)` | Behind remote message |
 

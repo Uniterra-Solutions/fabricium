@@ -2,7 +2,7 @@
 
 **Purpose:** `HermesPlugin` class — one-line plugin lifecycle registration for Hermes plugins.
 
-**File:** `src/fabricium/__init__.py:43-621`
+**File:** `src/fabricium/__init__.py:36-733`
 
 ## Public API
 
@@ -17,8 +17,25 @@
 |---------|---------|-------------|
 | `hermes <name> setup` | `_setup_command()` | Interactive: create profile, install skills, deploy SOUL.md |
 | `hermes <name> status` | `_status_command()` | Display per-profile installation state |
-| `hermes <name> update` | `_update_pull()` | Git pull + refresh skills + sync profiles |
-| `hermes <name> update --check` | `_update_check()` | Compare local vs remote HEAD without pulling |
+| `hermes <name> update` | `_update_pull()` | Update plugin (git or pip), refresh skills, sync profiles |
+| `hermes <name> update --check` | `_update_check()` | Check for newer versions without applying |
+| `hermes <name> update --git` | `_update_pull()` | Force git-based update (git pull) |
+| `hermes <name> update --pip` | `_update_pull()` | Force pip-based update (pip install --upgrade) |
+
+The `--check`, `--git`, and `--pip` flags can be combined (`--check` with `--git` or `--pip`).
+
+## Update Mode Resolution
+
+`_resolve_update_mode()` (`src/fabricium/__init__.py:412-428`) determines git vs pip:
+
+| Condition | Mode |
+|-----------|------|
+| `--git` flag given | git |
+| `--pip` flag given | pip |
+| Auto-detect: plugin dir is a git repo with remote | git |
+| Auto-detect: everything else | pip |
+
+When auto-detected pip fails (pip not found) and the user did not force `--pip`, the update falls back to git with a warning.
 
 ## Profile Modes
 
@@ -39,9 +56,11 @@
 
 ## Patterns & Gotchas
 
-- **State-based stale detection** (`src/fabricium/__init__.py:240-247`): Previous skills recorded in per-profile state. On update, `previous_skills - bundled_names = stale`. This avoids cross-touching other plugins' skills.
-- **Graceful pip fallback** (`src/fabricium/__init__.py:428-434`): If plugin dir is not a git repo, update prints `pip install --upgrade` instructions instead of failing.
-- **Auto fabricium upgrade** (`src/fabricium/__init__.py:536-550`): Every `update` command runs `pip install --upgrade fabricium` so plugins always get the latest fabricium.
+- **State-based stale detection** (`src/fabricium/__init__.py:233-239`): Previous skills recorded in per-profile state. On update, `previous_skills - bundled_names = stale`. This avoids cross-touching other plugins' skills.
+- **Dual git/pip update** (`src/fabricium/__init__.py:412-658`): `_resolve_update_mode()` auto-detects update method. Pip-installed plugins get `pip install --upgrade <name>`; git-installed plugins get `git pull`. `--git`/`--pip` flags override auto-detection.
+- **Pip fallback to git** (`src/fabricium/__init__.py:528-536`): When auto-detected pip fails (pip not found) and the user did not force `--pip`, the update falls back to git with a warning.
+- **Pip check via `--dry-run`** (`src/fabricium/__init__.py:490-512`): `_update_check_pip()` runs `pip install --dry-run --upgrade <name>` to check PyPI without installing.
+- **Auto fabricium upgrade** (`src/fabricium/__init__.py:541-555`): Every `update` command runs `pip install --upgrade fabricium` so plugins always get the latest fabricium.
 - **`_ensure_profile()`** (`src/fabricium/__init__.py:127-153`): Creates profile via `hermes profile create` subprocess. Falls back to manual instructions if `hermes` not on PATH.
 - **TTY-safety throughout**: Non-interactive contexts (CI, cron, piped input) use safe defaults — no blocking prompts.
 
@@ -60,6 +79,6 @@
 ## Find It Fast
 
 ```bash
-grep -n "def _setup\|def _status\|def _update\|def _dispatch" src/fabricium/__init__.py
+grep -n "def _setup\|def _status\|def _update\|def _dispatch\|def _resolve_update_mode" src/fabricium/__init__.py
 grep -n "class HermesPlugin" src/fabricium/__init__.py
 ```
