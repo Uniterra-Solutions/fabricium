@@ -33,13 +33,6 @@ from . import git_utils, prompts, skills, state
 logger = logging.getLogger(__name__)
 
 
-def _print_pip_upgrade_instructions(name: str) -> None:
-    """Print upgrade instructions for pip-installed plugins."""
-    print("🔍 pip-installed plugin — check for updates with:")
-    print(f"   pip install --upgrade {name}")
-    print(f"   Then run: hermes {name} update  (to refresh skills)")
-
-
 class HermesPlugin:
     """Hermes plugin lifecycle manager.
 
@@ -416,23 +409,42 @@ class HermesPlugin:
                     print(f"    - {pname}")
                 print("  Run: hermes caelterra setup")
 
-    def _update_check(self, args: Any) -> None:  # noqa: ARG002
+    def _resolve_update_mode(self, args: Any) -> tuple[bool, bool]:
+        """Determine whether to use git or pip for the update.
+
+        When ``--git`` or ``--pip`` is explicitly given, honour that choice.
+        Otherwise auto-detect: git when the plugin dir is a git repo with a
+        remote, pip otherwise.
+        """
+        use_git: bool = getattr(args, "git", False)
+        use_pip: bool = getattr(args, "pip", False)
+
+        if not use_git and not use_pip:
+            project_dir = str(self.plugin_dir.resolve())
+            if git_utils.is_git_repo(project_dir) and git_utils.get_remote_url(project_dir):
+                use_git = True
+            else:
+                use_pip = True
+
+        return use_git, use_pip
+
+    def _update_check(self, args: Any) -> None:
         """Handler for 'hermes <name> update --check'.
 
-        Checks for newer plugin versions.  For git-installed plugins
-        this compares against the remote.  For pip-installed plugins
-        it reports the installed version and suggests ``pip install --upgrade``.
+        Checks for newer plugin versions.  Git mode compares against the
+        remote; pip mode queries PyPI via ``pip install --dry-run``.
         """
+        use_git, _use_pip = self._resolve_update_mode(args)
+
+        if use_git:
+            self._update_check_git()
+        else:
+            self._update_check_pip()
+
+    def _update_check_git(self) -> None:
+        """Git-based update check — fetch and compare ahead/behind."""
         project_dir = str(self.plugin_dir.resolve())
-
-        if not git_utils.is_git_repo(project_dir):
-            _print_pip_upgrade_instructions(self.name)
-            return
-
         remote_url = git_utils.get_remote_url(project_dir)
-        if not remote_url:
-            _print_pip_upgrade_instructions(self.name)
-            return
 
         print(f"🔍 Checking for {self.name.title()} updates...")
         print(f"   Remote: {remote_url}")
@@ -469,65 +481,61 @@ class HermesPlugin:
         else:
             print(f"\n✅ {self.name.title()} is up to date.")
 
-    def _update_pull(self, args: Any) -> None:  # noqa: ARG002
+    def _update_check_pip(self) -> None:
+        """Pip-based update check using ``pip install --dry-run --upgrade``."""
+        print(f"🔍 Checking for {self.name.title()} updates via PyPI...")
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", "--dry-run", "--upgrade", self.name],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            output = result.stdout + result.stderr
+            if "Requirement already satisfied" in output:
+                print(f"\n✅ {self.name.title()} is up to date.")
+            elif "Would install" in output:
+                print("\n📦 A newer version is available.")
+                print(f"   Run 'hermes {self.name} update' to upgrade.")
+                for line in output.splitlines():
+                    if "Would install" in line:
+                        print(f"   {line.strip()}")
+            elif result.returncode != 0:
+                print(f"\n! pip check failed (exit {result.returncode})")
+                for line in output.strip().splitlines():
+                    print(f"   {line}")
+            else:
+                print(f"\n✅ {self.name.title()} is up to date.")
+        except FileNotFoundError:
+            print("\n! pip not found — cannot check for updates.")
+        except subprocess.TimeoutExpired:
+            print("\n! pip check timed out.")
+
+    def _update_pull(self, args: Any) -> None:
         """Handler for 'hermes <name> update'.
 
-        Always refreshes bundled skills and syncs profiles, even when
-        the plugin was installed via pip (no git repo).  Git pull is
-        attempted opportunistically and skipped when not applicable.
+        Updates via pip or git, refreshes bundled skills, and syncs profiles.
+        For pip-installed plugins that lack pip, falls back to git with a warning.
         """
-        project_dir = str(self.plugin_dir.resolve())
+        use_git, use_pip = self._resolve_update_mode(args)
+        user_forced_pip: bool = getattr(args, "pip", False)
 
         print(f"📦 Updating {self.name.title()}...")
 
-        # ── Try git pull (optional — skipped for pip installs) ──────
-        did_pull = False
-        if git_utils.is_git_repo(project_dir):
-            remote_url = git_utils.get_remote_url(project_dir)
-            if remote_url:
-                print(f"   Remote: {remote_url}")
+        did_update = False
 
-                # Guard against uncommitted changes
-                try:
-                    raw_status = subprocess.check_output(
-                        ["git", "-C", project_dir, "status", "--porcelain"],
-                        text=True,
-                    ).strip()
-                except subprocess.CalledProcessError:
-                    raw_status = ""
-                if raw_status:
-                    print("\n! You have uncommitted changes. Stash or commit them first:")
-                    for line in raw_status.splitlines():
-                        print(f"   {line}")
-                    print(f"\n  Then run: hermes {self.name} update")
-                    # Don't return — still refresh skills below
-                else:
-                    # Fetch and pull
-                    print("   Fetching remote refs...", end=" ", flush=True)
-                    fetch_result = git_utils.fetch_remote(project_dir)
-                    print("✓" if fetch_result["success"] else "✗")
-
-                    if fetch_result["success"]:
-                        info = git_utils.get_ahead_behind(project_dir)
-                        behind = info.get("behind", 0)
-                        local_head = git_utils.get_local_head(project_dir)
-                        print(f"   Local:  {local_head[:12] if local_head else 'unknown'}")
-
-                        if behind == 0:
-                            print("   Remote: already up to date")
-                        else:
-                            print(f"   Pulling {behind} new commit(s)...")
-                            result = git_utils.pull_branch(project_dir)
-                            if result["success"]:
-                                after = result.get("after", "")
-                                print(f"   After:  {after[:12] if after else 'unknown'}")
-                                did_pull = True
-                            else:
-                                print(f"\n   ✗ Pull failed: {result['message']}")
-            else:
-                print("   ! No remote — skipping git update")
-        else:
-            print("   ℹ pip install — skipping git update")
+        if use_pip:
+            did_update = self._update_pull_pip()
+            if not did_update and not user_forced_pip:
+                # pip failed and user didn't explicitly choose pip → try git fallback
+                project_dir = str(self.plugin_dir.resolve())
+                if git_utils.is_git_repo(project_dir) and git_utils.get_remote_url(
+                    project_dir
+                ):
+                    print("\n   ⚠ pip update failed, falling back to git...")
+                    did_update = self._update_pull_git()
+        elif use_git:
+            did_update = self._update_pull_git()
 
         # ── Update fabricium dependency ───────────────────────────────
         print("   📦 Updating fabricium dependency...", end=" ", flush=True)
@@ -547,11 +555,107 @@ class HermesPlugin:
             print("   ! pip not found — cannot update fabricium")
 
         # ── Always refresh skills and sync profiles ─────────────────
-        self._sync_installed_profiles("updated" if did_pull else "refreshed")
+        self._sync_installed_profiles("updated" if did_update else "refreshed")
 
         print(f"\n{'━' * 40}")
         print(f"✅ {self.name.title()} update complete.")
         print(f"   Check status: hermes {self.name} status")
+
+    def _update_pull_git(self) -> bool:
+        """Git pull update. Returns True if a pull was applied."""
+        project_dir = str(self.plugin_dir.resolve())
+        remote_url = git_utils.get_remote_url(project_dir)
+
+        if not git_utils.is_git_repo(project_dir):
+            print("   ! Not a git repository")
+            return False
+        if not remote_url:
+            print("   ! No remote — cannot pull")
+            return False
+
+        print(f"   Remote: {remote_url}")
+
+        # Guard against uncommitted changes
+        try:
+            raw_status = subprocess.check_output(
+                ["git", "-C", project_dir, "status", "--porcelain"],
+                text=True,
+            ).strip()
+        except subprocess.CalledProcessError:
+            raw_status = ""
+        if raw_status:
+            print("\n! You have uncommitted changes. Stash or commit them first:")
+            for line in raw_status.splitlines():
+                print(f"   {line}")
+            print(f"\n  Then run: hermes {self.name} update")
+            return False
+
+        # Fetch and pull
+        print("   Fetching remote refs...", end=" ", flush=True)
+        fetch_result = git_utils.fetch_remote(project_dir)
+        print("✓" if fetch_result["success"] else "✗")
+
+        if not fetch_result["success"]:
+            print(f"   Fetch failed: {fetch_result['message']}")
+            return False
+
+        info = git_utils.get_ahead_behind(project_dir)
+        behind = info.get("behind", 0)
+        local_head = git_utils.get_local_head(project_dir)
+        print(f"   Local:  {local_head[:12] if local_head else 'unknown'}")
+
+        if behind == 0:
+            print("   Remote: already up to date")
+            return False
+        else:
+            print(f"   Pulling {behind} new commit(s)...")
+            result = git_utils.pull_branch(project_dir)
+            if result["success"]:
+                after = result.get("after", "")
+                print(f"   After:  {after[:12] if after else 'unknown'}")
+                return True
+            else:
+                print(f"\n   ✗ Pull failed: {result['message']}")
+                return False
+
+    def _update_pull_pip(self) -> bool:
+        """Pip-based update via ``pip install --upgrade``.
+
+        Returns True if a new version was installed.
+        """
+        # Check if pip itself is available
+        try:
+            subprocess.run(
+                [sys.executable, "-m", "pip", "--version"],
+                capture_output=True,
+                check=True,
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            print("   ! pip not found")
+            return False
+
+        print(f"   📦 Updating via pip: pip install --upgrade {self.name}")
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", "--upgrade", self.name],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            output = result.stdout + result.stderr
+            if "Requirement already satisfied" in output:
+                print("   ✅ Already up to date.")
+                return False
+            else:
+                print("   ✓ Package updated.")
+                return True
+        except subprocess.CalledProcessError as e:
+            print(f"   ✗ pip install failed: {e.stderr.strip()}")
+            return False
+        except subprocess.TimeoutExpired:
+            print("   ✗ pip install timed out.")
+            return False
 
     # ── CLI command dispatch ────────────────────────────────────────
 
@@ -593,7 +697,18 @@ class HermesPlugin:
         update_parser.add_argument(
             "--check",
             action="store_true",
-            help="Only check for updates without pulling",
+            help="Only check for updates without applying them",
+        )
+        mode_group = update_parser.add_mutually_exclusive_group()
+        mode_group.add_argument(
+            "--git",
+            action="store_true",
+            help="Force git-based update (git pull)",
+        )
+        mode_group.add_argument(
+            "--pip",
+            action="store_true",
+            help="Force pip-based update (pip install --upgrade)",
         )
 
         subparser.set_defaults(func=self._dispatch)

@@ -279,6 +279,8 @@ def assert_update_check_responded(result: CliResult) -> None:
             "No remote 'origin' configured",
             "Checking for",
             "pip-installed plugin",
+            "via PyPI",
+            "A newer version is available",
         ],
     )
 
