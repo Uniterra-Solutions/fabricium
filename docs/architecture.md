@@ -85,18 +85,19 @@ graph TD
 ```
 hermes <name> update
     │
-    ├─► _resolve_update_mode()          # --git/--pip or auto-detect
+    ├─► _resolve_update_mode()          # --git/--pip or auto-detect (pip-first)
+    │
+    ├── [pip path] ──────────────────────
+    │   ├─► _get_hermes_python()        # Find Hermes's managed Python
+    │   ├─► pip --version               # Check pip available
+    │   ├─► pip install --upgrade <name> # Upgrade the plugin
+    │   └─► (falls back to git if pip missing + user didn't --pip)
     │
     ├── [git path] ──────────────────────
     │   ├─► git_utils.is_git_repo()
     │   ├─► git_utils.fetch_remote()
     │   ├─► git_utils.get_ahead_behind()
     │   └─► git_utils.pull_branch()
-    │
-    ├── [pip path] ──────────────────────
-    │   ├─► pip --version               # Check pip available
-    │   ├─► pip install --upgrade <name> # Upgrade the plugin
-    │   └─► (falls back to git if pip missing + user didn't --force)
     │
     ├─► pip install --upgrade fabricium  # Auto-update dependency
     │
@@ -138,6 +139,7 @@ python -m fabricium.evals.runner
 | LLM-as-Judge with position randomisation | Reduces order bias. Judge and candidate should use different providers to avoid self-preference. | Active |
 | Reasoning-model SSE proxy | DeepSeek V4 outputs `content: null` during reasoning → Hermes sees empty stream. Proxy patches `content: null` → `content: ""`. | Active |
 | Convention over configuration | `default_profile`, standard paths, sensible defaults. 99% of plugins need zero config. | Active |
+| Hermes-managed Python for pip | `_get_hermes_python()` locates `~/.hermes/.venv/bin/python3` (or `Scripts/python.exe` on Windows) instead of relying on `sys.executable`, which may point to the system Python on Windows. Prevents `pip install` from targeting the wrong environment. Fallback to `sys.executable` when no managed venv exists. | Active |
 
 ## How to Update
 

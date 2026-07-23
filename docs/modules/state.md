@@ -13,6 +13,7 @@
 | `load_state(plugin_name)` | `(str) -> dict` | Load state dict. Returns `{"profiles": {}}` if file missing or corrupt |
 | `save_state(plugin_name, state)` | `(str, dict) -> None` | Write state dict to JSON file. Creates parent dirs. Catches OSError gracefully |
 | `set_profile_state(plugin_name, profile_name, soul_md)` | `(str, str, bool) -> None` | Record a profile setup with timestamp |
+| `_get_hermes_python()` | `() -> str` | Locate Hermes's managed Python in `~/.hermes/.venv/` (falls back to `sys.executable`) |
 
 ## State Schema
 
@@ -44,6 +45,7 @@
 ## Patterns & Gotchas
 
 - **`_get_global_hermes_home()` resolution** (`src/fabricium/state.py:14-28`): When running under a profile, `HERMES_HOME` is set to `~/.hermes/profiles/<name>/`. This function detects the `profiles/` segment and walks up two levels to find the true global home. Without this, state files would be written to the wrong location.
+- **`_get_hermes_python()`** (`src/fabricium/state.py:94-121`): Resolves Hermes's managed Python via candidate list: `python3` → `python` (Unix) or `python.exe` → `python` (Windows). Falls back to `sys.executable` when no managed venv exists. Used by all pip operations to prevent targeting the system Python (common Windows issue).
 - **Graceful degradation** (`src/fabricium/state.py:42-49`): `load_state` returns `{"profiles": {}}` on any read/parse failure — never crashes.
 - **`save_state` swallows errors** (`src/fabricium/state.py:58-59`): Prints warning on `OSError` but does not propagate. Callers should not assume save succeeded.
 

@@ -26,16 +26,17 @@ The `--check`, `--git`, and `--pip` flags can be combined (`--check` with `--git
 
 ## Update Mode Resolution
 
-`_resolve_update_mode()` (`src/fabricium/__init__.py:412-428`) determines git vs pip:
+`_resolve_update_mode()` (`src/fabricium/__init__.py:413-424`) determines git vs pip:
 
 | Condition | Mode |
 |-----------|------|
 | `--git` flag given | git |
 | `--pip` flag given | pip |
-| Auto-detect: plugin dir is a git repo with remote | git |
-| Auto-detect: everything else | pip |
+| Auto-detect (neither flag given) | **pip** (preferred default) |
 
-When auto-detected pip fails (pip not found) and the user did not force `--pip`, the update falls back to git with a warning.
+When auto-detected pip is unavailable (pip not found) and the user did not force `--pip`, the update falls back to git with a warning. `_update_check` also tries pip first and falls back to git when the package is not on PyPI.
+
+All pip calls use `state._get_hermes_python()` instead of `sys.executable` to ensure `pip install` targets Hermes's managed Python environment, not the system Python (common issue on Windows).
 
 ## Profile Modes
 
@@ -50,14 +51,14 @@ When auto-detected pip fails (pip not found) and the user did not force `--pip`,
 
 **Outbound:**
 - `fabricium.skills` (`install_bundled_skills`, `get_bundled_skill_names`, `remove_stale_from_profile`)
-- `fabricium.state` (`load_state`, `save_state`, `set_profile_state`, `_get_global_hermes_home`)
+- `fabricium.state` (`load_state`, `save_state`, `set_profile_state`, `_get_global_hermes_home`, `_get_hermes_python`)
 - `fabricium.prompts` (`prompt_yes_no`)
 - `fabricium.git_utils` (`is_git_repo`, `fetch_remote`, `pull_branch`, `get_ahead_behind`, `get_local_head`, `get_remote_url`)
 
 ## Patterns & Gotchas
 
 - **State-based stale detection** (`src/fabricium/__init__.py:233-239`): Previous skills recorded in per-profile state. On update, `previous_skills - bundled_names = stale`. This avoids cross-touching other plugins' skills.
-- **Dual git/pip update** (`src/fabricium/__init__.py:412-658`): `_resolve_update_mode()` auto-detects update method. Pip-installed plugins get `pip install --upgrade <name>`; git-installed plugins get `git pull`. `--git`/`--pip` flags override auto-detection.
+- **Dual git/pip update** (`src/fabricium/__init__.py:413-681`): `_resolve_update_mode()` defaults to pip (not git). Pip-installed plugins get `pip install --upgrade <name>` via `state._get_hermes_python()`; git is the fallback when pip is unavailable. `--git`/`--pip` flags override auto-detection.
 - **Pip fallback to git** (`src/fabricium/__init__.py:528-536`): When auto-detected pip fails (pip not found) and the user did not force `--pip`, the update falls back to git with a warning.
 - **Pip check via `--dry-run`** (`src/fabricium/__init__.py:490-512`): `_update_check_pip()` runs `pip install --dry-run --upgrade <name>` to check PyPI without installing.
 - **Auto fabricium upgrade** (`src/fabricium/__init__.py:541-555`): Every `update` command runs `pip install --upgrade fabricium` so plugins always get the latest fabricium.

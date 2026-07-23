@@ -39,6 +39,7 @@
 - Commands print to stdout directly (no logging framework for user output).
 - `logger.info()` for debug/internal messages only.
 - TTY detection: `sys.stdin.isatty()` — non-TTY uses safe defaults without blocking.
+- Explicit `encoding="utf-8"` on all `Path.read_text()` / `Path.write_text()` / `subprocess.run(text=True)` calls. Prevents `UnicodeDecodeError` on Windows systems where the default locale encoding (e.g. cp950) cannot decode UTF-8 characters.
 
 ## State Management
 
