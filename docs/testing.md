@@ -86,6 +86,24 @@ uv run pytest -m "integration"          # Only integration
 uv run pytest -m "not integration"      # Skip integration
 ```
 
+## Hermes Desktop PYTHONPATH
+
+When running tests inside the Hermes desktop app, the `PYTHONPATH` environment
+variable includes Hermes's own venv site-packages
+(`~/.hermes/hermes-agent/venv/lib/python3.11/site-packages`), which may contain
+an older pip-installed copy of fabricium. This copy takes priority over the
+project's editable install in Python's import resolution.
+
+`tests/conftest.py` handles this automatically:
+
+1. **Insert `src/` at `sys.path[0]`** — ensures the local source tree is searched
+   before any PYTHONPATH or site-packages entry.
+2. **Purge pre-loaded `fabricium` modules from `sys.modules`** — pytest or its
+   plugins may import `fabricium` before conftest runs. Removing these cached
+   modules forces a fresh import from the corrected `sys.path`.
+
+No special command prefix is needed — `uv run pytest` works directly.
+
 ## Mock Policy
 
 Fabricium tests use **minimal mocking**. The philosophy:

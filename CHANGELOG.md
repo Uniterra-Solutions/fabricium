@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`pip install` targeting wrong Python on Windows.** `sys.executable` may point to the system Python instead of Hermes's managed venv. Added `state._get_hermes_python()` that locates `~/.hermes/.venv/bin/python3` (or `Scripts/python.exe` on Windows) via a candidate-list fallback (`python3` → `python` / `python.exe` → `python`). All 4 pip call sites now use this instead of `sys.executable`.
 - **`hermes <plugin> update` always chose git over pip.** `_resolve_update_mode` auto-detection now defaults to pip (not git). `--git` flag still forces git mode. Pip-unavailable or package-not-on-PyPI automatically falls back to git. `_update_check` also gained pip-first git-fallback behaviour.
 - **`_update_check_pip` text-pattern-before-exit-code ordering.** Checking "Requirement already satisfied" / "Would install" before the exit code could produce false-positives when pip exits non-zero but stderr contains those strings (e.g. from a dependency). Fixed by checking exit code first.
+- **Tests loading stale fabricium from Hermes PYTHONPATH.** When running inside the Hermes desktop app, the `PYTHONPATH` environment variable points to Hermes's own venv site-packages, which contains an older installed copy of fabricium that shadows the local editable install. `tests/conftest.py` now inserts `src/` at the front of `sys.path` and purges any pre-loaded fabricium modules from `sys.modules`, ensuring tests always run against the working tree.
 
 ## [0.2.0] — 2026-07-22
 
