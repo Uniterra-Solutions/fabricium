@@ -5,6 +5,15 @@ All notable changes to Fabricium will be documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] — 2026-07-24
+
+### Fixed
+
+- **Windows cp950 UnicodeDecodeError.** Added explicit `encoding="utf-8"` to all `Path.read_text()`, `Path.write_text()`, and `subprocess.run(text=True)` calls across the entire codebase (21 locations). Fixes crash on Windows systems where the default locale encoding (e.g. cp950) cannot decode UTF-8 characters like em dash and curly quotes. (GitHub #1)
+- **`pip install` targeting wrong Python on Windows.** `sys.executable` may point to the system Python instead of Hermes's managed venv. Added `state._get_hermes_python()` that locates `~/.hermes/.venv/bin/python3` (or `Scripts/python.exe` on Windows) via a candidate-list fallback (`python3` → `python` / `python.exe` → `python`). All 4 pip call sites now use this instead of `sys.executable`.
+- **`hermes <plugin> update` always chose git over pip.** `_resolve_update_mode` auto-detection now defaults to pip (not git). `--git` flag still forces git mode. Pip-unavailable or package-not-on-PyPI automatically falls back to git. `_update_check` also gained pip-first git-fallback behaviour.
+- **`_update_check_pip` text-pattern-before-exit-code ordering.** Checking "Requirement already satisfied" / "Would install" before the exit code could produce false-positives when pip exits non-zero but stderr contains those strings (e.g. from a dependency). Fixed by checking exit code first.
+
 ## [0.2.0] — 2026-07-22
 
 ### Added
