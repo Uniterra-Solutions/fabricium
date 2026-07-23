@@ -259,3 +259,64 @@ class TestGetGlobalHermesHomeCache:
             if old_env is not None:
                 os.environ["HERMES_HOME"] = old_env
             state_mod._HERMES_HOME_CACHE = old_cache
+
+
+class TestGetHermesPython:
+    def test_returns_venv_python_when_exists(self, tmp_hermes_home):
+        """When .venv/bin/python3 exists, return that path."""
+        venv_python = tmp_hermes_home / ".venv" / "bin" / "python3"
+        venv_python.parent.mkdir(parents=True)
+        venv_python.touch()
+
+        result = state._get_hermes_python()
+        assert str(Path(result).resolve()) == str(venv_python.resolve())
+
+    def test_falls_back_to_sys_executable_when_venv_missing(self, tmp_hermes_home):
+        """When .venv/ doesn't exist, fall back to sys.executable."""
+        import sys
+
+        result = state._get_hermes_python()
+        assert result == sys.executable
+
+    def test_windows_uses_scripts_python_exe(self, tmp_hermes_home, monkeypatch):
+        """On Windows, use .venv/Scripts/python.exe."""
+        monkeypatch.setattr(state.sys, "platform", "win32")
+        venv_python = tmp_hermes_home / ".venv" / "Scripts" / "python.exe"
+        venv_python.parent.mkdir(parents=True)
+        venv_python.touch()
+
+        result = state._get_hermes_python()
+        assert str(Path(result).resolve()) == str(venv_python.resolve())
+
+    def test_falls_back_to_sys_when_venv_bin_empty(self, tmp_hermes_home):
+        """When .venv/bin exists but contains no python/python3, fall back."""
+        import sys
+
+        bin_dir = tmp_hermes_home / ".venv" / "bin"
+        bin_dir.mkdir(parents=True)
+
+        result = state._get_hermes_python()
+        assert result == sys.executable
+
+    def test_returns_venv_python_when_only_python_exists(self, tmp_hermes_home):
+        """When .venv/bin/python exists but python3 does NOT, use python."""
+        bin_dir = tmp_hermes_home / ".venv" / "bin"
+        bin_dir.mkdir(parents=True)
+        (bin_dir / "python").touch()
+
+        result = state._get_hermes_python()
+        expected = (tmp_hermes_home / ".venv" / "bin" / "python").resolve()
+        assert str(Path(result).resolve()) == str(expected)
+
+    def test_windows_falls_back_to_python_when_python_exe_missing(
+        self, tmp_hermes_home, monkeypatch
+    ):
+        """On Windows, when python.exe missing but python exists, use python."""
+        monkeypatch.setattr(state.sys, "platform", "win32")
+        bin_dir = tmp_hermes_home / ".venv" / "Scripts"
+        bin_dir.mkdir(parents=True)
+        (bin_dir / "python").touch()
+
+        result = state._get_hermes_python()
+        expected = (tmp_hermes_home / ".venv" / "Scripts" / "python").resolve()
+        assert str(Path(result).resolve()) == str(expected)
