@@ -3,10 +3,30 @@
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
 import pytest
+
+# ── Ensure local src/ takes priority over any PYTHONPATH entries ──────────
+# Hermes desktop sets PYTHONPATH to its own venv site-packages, which
+# may contain an older installed copy of fabricium that shadows the
+# local editable install.  Push the project source root to the front
+# of sys.path so tests always run against the working tree.
+#
+# This MUST happen at module level in conftest.py because pytest loads
+# conftest before collecting (importing) test files.
+_SRC = Path(__file__).absolute().parent.parent / "src"
+sys.path.insert(0, str(_SRC))
+# Hermes PYTHONPATH may have caused fabricium to be imported from the
+# wrong location before conftest ran.  Purge all fabricium modules
+# so the next import picks up the local src/ tree.
+_fabricium_keys = [k for k in sys.modules if k == "fabricium" or k.startswith("fabricium.")]
+for _k in _fabricium_keys:
+    del sys.modules[_k]
+del _SRC
+# ───────────────────────────────────────────────────────────────────────────
 
 
 @pytest.fixture
