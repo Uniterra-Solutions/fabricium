@@ -133,6 +133,7 @@ class HermesPlugin:
                 check=True,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
             )
             print(f"  ✓ Profile '{profile_name}' created")
             return True
@@ -156,7 +157,7 @@ class HermesPlugin:
             return False
 
         try:
-            soul_dst.write_text(soul_src.read_text())
+            soul_dst.write_text(soul_src.read_text(encoding="utf-8"), encoding="utf-8")
             print(f"  ✓ SOUL.md written to {soul_dst}")
             return True
         except OSError as e:
@@ -413,33 +414,37 @@ class HermesPlugin:
         """Determine whether to use git or pip for the update.
 
         When ``--git`` or ``--pip`` is explicitly given, honour that choice.
-        Otherwise auto-detect: git when the plugin dir is a git repo with a
-        remote, pip otherwise.
+        Otherwise auto-detect: prefer pip (the plugin was installed from PyPI);
+        git is the fallback when pip is unavailable or the user passed ``--git``.
         """
         use_git: bool = getattr(args, "git", False)
         use_pip: bool = getattr(args, "pip", False)
 
         if not use_git and not use_pip:
-            project_dir = str(self.plugin_dir.resolve())
-            if git_utils.is_git_repo(project_dir) and git_utils.get_remote_url(project_dir):
-                use_git = True
-            else:
-                use_pip = True
+            use_pip = True
 
         return use_git, use_pip
 
     def _update_check(self, args: Any) -> None:
         """Handler for 'hermes <name> update --check'.
 
-        Checks for newer plugin versions.  Git mode compares against the
-        remote; pip mode queries PyPI via ``pip install --dry-run``.
+        Checks for newer plugin versions.  Tries pip first (preferred
+        for PyPI-installed plugins), falls back to git when pip check
+        fails (package not on PyPI) and the plugin dir is a git repo.
+        When ``--git`` or ``--pip`` is explicitly given, honours that
+        choice.
         """
-        use_git, _use_pip = self._resolve_update_mode(args)
+        use_git, use_pip = self._resolve_update_mode(args)
 
-        if use_git:
-            self._update_check_git()
-        else:
-            self._update_check_pip()
+        if use_pip:
+            if self._update_check_pip():
+                return
+            # pip check failed — fall back to git if available
+            project_dir = str(self.plugin_dir.resolve())
+            if git_utils.is_git_repo(project_dir) and git_utils.get_remote_url(project_dir):
+                self._update_check_git()
+            return
+        self._update_check_git()
 
     def _update_check_git(self) -> None:
         """Git-based update check — fetch and compare ahead/behind."""
@@ -481,35 +486,56 @@ class HermesPlugin:
         else:
             print(f"\n✅ {self.name.title()} is up to date.")
 
-    def _update_check_pip(self) -> None:
-        """Pip-based update check using ``pip install --dry-run --upgrade``."""
+    def _update_check_pip(self) -> bool:
+        """Pip-based update check using ``pip install --dry-run --upgrade``.
+
+        Returns True if the check completed successfully (package is on
+        PyPI — either up to date or a newer version available).  Returns
+        False when pip is unavailable or the package is not on PyPI;
+        the caller can then fall back to a git-based check.
+        """
         print(f"🔍 Checking for {self.name.title()} updates via PyPI...")
         try:
             result = subprocess.run(
-                [sys.executable, "-m", "pip", "install", "--dry-run", "--upgrade", self.name],
+                [
+                    state._get_hermes_python(),
+                    "-m",
+                    "pip",
+                    "install",
+                    "--dry-run",
+                    "--upgrade",
+                    self.name,
+                ],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 timeout=60,
             )
             output = result.stdout + result.stderr
-            if "Requirement already satisfied" in output:
+            if result.returncode != 0:
+                print(f"\n! pip check failed (exit {result.returncode})")
+                for line in output.strip().splitlines():
+                    print(f"   {line}")
+                return False
+            elif "Requirement already satisfied" in output:
                 print(f"\n✅ {self.name.title()} is up to date.")
+                return True
             elif "Would install" in output:
                 print("\n📦 A newer version is available.")
                 print(f"   Run 'hermes {self.name} update' to upgrade.")
                 for line in output.splitlines():
                     if "Would install" in line:
                         print(f"   {line.strip()}")
-            elif result.returncode != 0:
-                print(f"\n! pip check failed (exit {result.returncode})")
-                for line in output.strip().splitlines():
-                    print(f"   {line}")
+                return True
             else:
                 print(f"\n✅ {self.name.title()} is up to date.")
+                return True
         except FileNotFoundError:
             print("\n! pip not found — cannot check for updates.")
+            return False
         except subprocess.TimeoutExpired:
             print("\n! pip check timed out.")
+            return False
 
     def _update_pull(self, args: Any) -> None:
         """Handler for 'hermes <name> update'.
@@ -527,12 +553,10 @@ class HermesPlugin:
         if use_pip:
             did_update = self._update_pull_pip()
             if not did_update and not user_forced_pip:
-                # pip failed and user didn't explicitly choose pip → try git fallback
+                # pip not available → try git fallback
                 project_dir = str(self.plugin_dir.resolve())
-                if git_utils.is_git_repo(project_dir) and git_utils.get_remote_url(
-                    project_dir
-                ):
-                    print("\n   ⚠ pip update failed, falling back to git...")
+                if git_utils.is_git_repo(project_dir) and git_utils.get_remote_url(project_dir):
+                    print("\n   ⚠ pip not available, falling back to git...")
                     did_update = self._update_pull_git()
         elif use_git:
             did_update = self._update_pull_git()
@@ -541,10 +565,11 @@ class HermesPlugin:
         print("   📦 Updating fabricium dependency...", end=" ", flush=True)
         try:
             subprocess.run(
-                [sys.executable, "-m", "pip", "install", "--upgrade", "fabricium"],
+                [state._get_hermes_python(), "-m", "pip", "install", "--upgrade", "fabricium"],
                 check=True,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
             )
             print("✓")
         except subprocess.CalledProcessError as e:
@@ -580,6 +605,7 @@ class HermesPlugin:
             raw_status = subprocess.check_output(
                 ["git", "-C", project_dir, "status", "--porcelain"],
                 text=True,
+                encoding="utf-8",
             ).strip()
         except subprocess.CalledProcessError:
             raw_status = ""
@@ -621,12 +647,14 @@ class HermesPlugin:
     def _update_pull_pip(self) -> bool:
         """Pip-based update via ``pip install --upgrade``.
 
-        Returns True if a new version was installed.
+        Returns True if pip was functional (regardless of whether an
+        update was installed).  Returns False ONLY when pip is not
+        installed — the caller can then fall back to git.
         """
         # Check if pip itself is available
         try:
             subprocess.run(
-                [sys.executable, "-m", "pip", "--version"],
+                [state._get_hermes_python(), "-m", "pip", "--version"],
                 capture_output=True,
                 check=True,
             )
@@ -637,16 +665,17 @@ class HermesPlugin:
         print(f"   📦 Updating via pip: pip install --upgrade {self.name}")
         try:
             result = subprocess.run(
-                [sys.executable, "-m", "pip", "install", "--upgrade", self.name],
+                [state._get_hermes_python(), "-m", "pip", "install", "--upgrade", self.name],
                 check=True,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 timeout=120,
             )
             output = result.stdout + result.stderr
             if "Requirement already satisfied" in output:
                 print("   ✅ Already up to date.")
-                return False
+                return True  # pip is functional, just nothing to update
             else:
                 print("   ✓ Package updated.")
                 return True

@@ -7,6 +7,7 @@ Provides load/save helpers for per-plugin state files stored under
 import json
 import os
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -41,6 +42,7 @@ def _resolve_hermes_home_via_cli() -> Path | None:
             ["hermes", "config", "path"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             timeout=5,
         )
         if result.returncode == 0:
@@ -89,6 +91,36 @@ def _get_global_hermes_home() -> Path:
     return fallback
 
 
+def _get_hermes_python() -> str:
+    """Return the Hermes-managed Python executable path.
+
+    Uses the global Hermes home to locate ``.venv/bin/python3``
+    (or ``.venv/Scripts/python.exe`` on Windows).  When the
+    platform-specific entry point is missing, falls back to
+    ``python`` inside the same directory before giving up and
+    returning ``sys.executable``.
+
+    This prevents ``pip install`` from targeting the system Python
+    (common on Windows where ``sys.executable`` may point to a
+    separately-installed system interpreter).
+    """
+    hermes_home = _get_global_hermes_home()
+    if sys.platform == "win32":
+        candidates = [
+            hermes_home / ".venv" / "Scripts" / "python.exe",
+            hermes_home / ".venv" / "Scripts" / "python",
+        ]
+    else:
+        candidates = [
+            hermes_home / ".venv" / "bin" / "python3",
+            hermes_home / ".venv" / "bin" / "python",
+        ]
+    for python in candidates:
+        if python.exists():
+            return str(python)
+    return sys.executable
+
+
 def get_state_path(plugin_name: str) -> Path:
     """Return the path to the plugin's state file.
 
@@ -102,7 +134,7 @@ def load_state(plugin_name: str) -> dict[str, Any]:
     state_path = get_state_path(plugin_name)
     if state_path.exists():
         try:
-            result = json.loads(state_path.read_text())
+            result = json.loads(state_path.read_text(encoding="utf-8"))
             assert isinstance(result, dict)
             return result
         except (json.JSONDecodeError, OSError, AssertionError):
@@ -115,7 +147,9 @@ def save_state(plugin_name: str, state: dict[str, Any]) -> None:
     state_path = get_state_path(plugin_name)
     try:
         state_path.parent.mkdir(parents=True, exist_ok=True)
-        state_path.write_text(json.dumps(state, indent=2, ensure_ascii=False) + "\n")
+        state_path.write_text(
+            json.dumps(state, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
     except OSError as e:
         print(f"  ! Could not save state: {e}")
 

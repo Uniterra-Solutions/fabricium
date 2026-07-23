@@ -216,7 +216,9 @@ class HermesDockerTestEnv:
             raise RuntimeError("Container not started — call start() first.")
 
         cmd = ["docker", "exec", self._container_name, "hermes", *args]
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, encoding="utf-8", timeout=timeout
+        )
         return CliResult(
             exit_code=proc.returncode,
             stdout=proc.stdout,
@@ -255,10 +257,13 @@ class HermesDockerTestEnv:
                 CONFIG_YAML_TEMPLATE.format(
                     model=self.config.model,
                     provider=self.config.provider,
-                )
+                ),
+                encoding="utf-8",
             )
         else:
-            (hermes_home / "config.yaml").write_text("# Minimal config — no provider configured\n")
+            (hermes_home / "config.yaml").write_text(
+                "# Minimal config — no provider configured\n", encoding="utf-8"
+            )
 
         # .env
         env_lines = []
@@ -268,7 +273,7 @@ class HermesDockerTestEnv:
         for k, v in self.config.extra_env.items():
             env_lines.append(f"{k}={v}")
         if env_lines:
-            (hermes_home / ".env").write_text("\n".join(env_lines) + "\n")
+            (hermes_home / ".env").write_text("\n".join(env_lines) + "\n", encoding="utf-8")
 
         # Ensure subdirectories exist
         (hermes_home / "plugins").mkdir(exist_ok=True)
@@ -308,7 +313,9 @@ class HermesDockerTestEnv:
 
         # Fallback: no plugin.yaml at all — create minimal one
         dst.mkdir(parents=True)
-        (dst / "plugin.yaml").write_text(PLUGIN_YAML_TEMPLATE.format(name=self.plugin_name))
+        (dst / "plugin.yaml").write_text(
+            PLUGIN_YAML_TEMPLATE.format(name=self.plugin_name), encoding="utf-8"
+        )
         for item in self.plugin_dir.iterdir():
             if item.name == "__pycache__":
                 continue
@@ -421,6 +428,7 @@ class HermesDockerTestEnv:
                 ["docker", "exec", self._container_name, "hermes", "--version"],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 timeout=10,
             )
             if proc.returncode == 0:

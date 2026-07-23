@@ -123,7 +123,7 @@ class EvalReport:
             }
         text = json.dumps(data, indent=2, ensure_ascii=False)
         if path:
-            Path(path).write_text(text)
+            Path(path).write_text(text, encoding="utf-8")
         return text
 
 
@@ -146,7 +146,7 @@ def _docker_exec(
     if workdir:
         cmd += ["-w", workdir]
     cmd += [container, *args]
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", timeout=timeout)
 
 
 def _docker_ok(container: str, *args: str, timeout: int = 120, workdir: str | None = None) -> str:
@@ -171,6 +171,7 @@ def _docker_write_file(container: str, path: str, content: str, timeout: int = 3
         input=content,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=timeout,
         check=True,
     )
@@ -336,10 +337,11 @@ class SkillEvalHarness:
                 self.config.candidate.provider,
                 self.config.candidate.model,
                 self.config.candidate.api_base,
-            )
+            ),
+            encoding="utf-8",
         )
         env_key = self._api_key_env_name(self.config.candidate.provider)
-        (hh / ".env").write_text(f"{env_key}={self.config.candidate.api_key}\n")
+        (hh / ".env").write_text(f"{env_key}={self.config.candidate.api_key}\n", encoding="utf-8")
 
         # Copy jovaltus plugin
         jdst = hh / "plugins" / "jovaltus"

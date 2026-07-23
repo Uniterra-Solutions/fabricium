@@ -46,7 +46,7 @@ def is_git_repo(repo_path: Optional[str] = None) -> bool:
     """Check if the given path is inside a git repository."""
     try:
         cmd = _git_cmd(repo_path) + ["rev-parse", "--git-dir"]
-        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", check=True)
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
         return False
@@ -55,14 +55,14 @@ def is_git_repo(repo_path: Optional[str] = None) -> bool:
 def get_head_hash(repo_path: Optional[str] = None) -> str:
     """Return the full SHA of HEAD."""
     cmd = _git_cmd(repo_path) + ["rev-parse", "HEAD"]
-    return subprocess.check_output(cmd, text=True).strip()
+    return subprocess.check_output(cmd, text=True, encoding="utf-8").strip()
 
 
 def get_diff(start_hash: str, end: str = "HEAD", repo_path: Optional[str] = None) -> str:
     """Return the git diff between two refs as a string."""
     cmd = _git_cmd(repo_path) + ["diff", start_hash, end]
     try:
-        return subprocess.check_output(cmd, text=True).strip()
+        return subprocess.check_output(cmd, text=True, encoding="utf-8").strip()
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"git diff failed: {e.stderr.strip()}") from e
 
@@ -76,7 +76,7 @@ def get_diff_stat(
     """
     cmd = _git_cmd(repo_path) + ["diff", "--numstat", start_hash, end]
     try:
-        out = subprocess.check_output(cmd, text=True).strip()
+        out = subprocess.check_output(cmd, text=True, encoding="utf-8").strip()
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"git diff --numstat failed: {e.stderr.strip()}") from e
 
@@ -100,7 +100,7 @@ def get_remote_url(repo_path: Optional[str] = None) -> str:
     """Return the remote origin URL. Returns empty string if no remote."""
     cmd = _git_cmd(repo_path) + ["remote", "get-url", "origin"]
     try:
-        return subprocess.check_output(cmd, text=True).strip()
+        return subprocess.check_output(cmd, text=True, encoding="utf-8").strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
         return ""
 
@@ -109,7 +109,7 @@ def get_default_branch(repo_path: Optional[str] = None) -> str:
     """Return the default branch name (remote HEAD ref). Falls back to 'main'."""
     cmd = _git_cmd(repo_path) + ["symbolic-ref", "refs/remotes/origin/HEAD"]
     try:
-        out = subprocess.check_output(cmd, text=True).strip()
+        out = subprocess.check_output(cmd, text=True, encoding="utf-8").strip()
         return out.removeprefix("refs/remotes/origin/")
     except (subprocess.CalledProcessError, FileNotFoundError):
         return "main"
@@ -138,7 +138,7 @@ def get_remote_head(repo_path: Optional[str] = None) -> str | None:
     branch = get_default_branch(repo_path)
     cmd = _git_cmd(repo_path) + ["rev-parse", f"origin/{branch}"]
     try:
-        return subprocess.check_output(cmd, text=True).strip()
+        return subprocess.check_output(cmd, text=True, encoding="utf-8").strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None
 
@@ -148,7 +148,7 @@ def get_local_head(repo_path: Optional[str] = None, ref: str | None = None) -> s
     target = ref or "HEAD"
     cmd = _git_cmd(repo_path) + ["rev-parse", target]
     try:
-        return subprocess.check_output(cmd, text=True).strip()
+        return subprocess.check_output(cmd, text=True, encoding="utf-8").strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None
 
@@ -168,7 +168,7 @@ def get_ahead_behind(
     # First check if the remote ref exists
     cmd_check = _git_cmd(repo_path) + ["rev-parse", "--verify", ref]
     try:
-        remote_sha = subprocess.check_output(cmd_check, text=True).strip()
+        remote_sha = subprocess.check_output(cmd_check, text=True, encoding="utf-8").strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
         return {"ahead": 0, "behind": 0, "remote_head": None}
 
@@ -180,7 +180,7 @@ def get_ahead_behind(
         f"{base}...{ref}",
     ]
     try:
-        out = subprocess.check_output(cmd, text=True).strip()
+        out = subprocess.check_output(cmd, text=True, encoding="utf-8").strip()
         parts = out.split("\t")
         ahead = int(parts[0]) if len(parts) > 0 else 0
         behind = int(parts[1]) if len(parts) > 1 else 0
@@ -245,7 +245,7 @@ def stage_all(repo_path: Optional[str] = None) -> None:
 def commit(message: str, repo_path: Optional[str] = None) -> CommitResult:
     """Commit staged changes. Returns {"success": bool, "message": str}."""
     cmd = _git_cmd(repo_path) + ["commit", "-m", message]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
     if result.returncode == 0:
         return {"success": True, "message": result.stdout.strip()}
     else:
