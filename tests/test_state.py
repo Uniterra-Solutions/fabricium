@@ -66,7 +66,7 @@ def test_get_global_hermes_home_default(tmp_hermes_home, monkeypatch):
         state_mod._HERMES_HOME_CACHE = old_cache
 
 
-def test_get_state_path():
+def test_get_state_path(tmp_hermes_home):
     path = state.get_state_path("my-plugin")
     assert path.name == "my-plugin_state.json"
     assert ".hermes" in str(path)
