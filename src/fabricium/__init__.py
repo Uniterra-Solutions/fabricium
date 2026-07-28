@@ -599,22 +599,44 @@ class HermesPlugin:
             did_update = self._update_pull_git()
 
         # ── Update fabricium dependency ───────────────────────────────
-        print("   📦 Updating fabricium dependency...", end=" ", flush=True)
+        # Use sys.executable (the project Python), NOT _get_hermes_python()
+        # (the Hermes-internal Python).  fabricium is a dependency of the
+        # plugin project; installing it into Hermes' own venv would be
+        # overwritten the next time Hermes updates itself.
+        pip_available = False
         try:
             subprocess.run(
-                [state._get_hermes_python(), "-m", "pip", "install", "--upgrade", "fabricium"],
-                check=True,
+                [sys.executable, "-m", "pip", "--version"],
                 capture_output=True,
-                text=True,
-                encoding="utf-8",
+                check=True,
             )
-            print("✓")
-        except subprocess.CalledProcessError as e:
-            print("✗")
-            print(f"   ! Could not update fabricium: {e.stderr.strip()}")
-        except FileNotFoundError:
-            print("✗")
-            print(f"   ! pip not found — cannot update fabricium")
+            pip_available = True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
+
+        if pip_available:
+            print("   📦 Updating fabricium dependency...", end=" ", flush=True)
+            try:
+                subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "pip",
+                        "install",
+                        "--upgrade",
+                        "fabricium",
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                )
+                print("✓")
+            except subprocess.CalledProcessError as e:
+                print("✗")
+                print(f"   ! Could not update fabricium: {e.stderr.strip()}")
+        else:
+            print("   ! pip not found — skipping fabricium update")
 
         # ── Always refresh skills and sync profiles ─────────────────
         self._sync_installed_profiles("updated" if did_update else "refreshed")
