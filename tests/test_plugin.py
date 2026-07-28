@@ -116,10 +116,12 @@ class TestEnsureProfile:
         pdir.mkdir(parents=True)
         (pdir / "config.yaml").write_text("provider: test\n")
         plugin = make_plugin(tmp_path, "test-plugin")
-        assert plugin._ensure_profile("exists") is True
+        success, is_new = plugin._ensure_profile("exists")
+        assert success is True
+        assert is_new is False
 
     def test_returns_false_when_hermes_cli_missing(self, tmp_hermes_home, tmp_path, monkeypatch):
-        """When hermes CLI is not found, ensure_profile should return False."""
+        """When hermes CLI is not found, ensure_profile should return (False, False)."""
         import os
         import subprocess
 
@@ -136,8 +138,9 @@ class TestEnsureProfile:
         monkeypatch.setattr(subprocess, "run", fake_run)
 
         plugin = make_plugin(tmp_path, "test-plugin")
-        result = plugin._ensure_profile("nonexistent")
-        assert result is False
+        success, is_new = plugin._ensure_profile("nonexistent")
+        assert success is False
+        assert is_new is False
 
 
 # ── Regression tests ─────────────────────────────────────────────
@@ -391,3 +394,65 @@ class TestUpdatePullPip:
         monkeypatch.setattr(subprocess, "run", fake_run)
         result = plugin._update_pull_pip()
         assert result is True  # pip was functional, update succeeded
+
+
+# ── Config inheritance tests ───────────────────────────────────────
+
+
+class TestInheritConfigFromDefault:
+    def test_copies_default_config_to_profile(self, tmp_hermes_home, tmp_path):
+        """Default config.yaml is copied to the named profile directory."""
+        import os
+
+        os.environ["HERMES_HOME"] = str(tmp_hermes_home)
+        # Set up default profile with a config
+        (tmp_hermes_home / "config.yaml").write_text("provider: default-provider\nmodel: gpt-4\n")
+        # Create the profile directory (simulates hermes profile create)
+        profile_dir = tmp_hermes_home / "profiles" / "new-profile"
+        profile_dir.mkdir(parents=True)
+        (profile_dir / "config.yaml").write_text("provider: placeholder\n")
+
+        plugin = make_plugin(tmp_path, "test-plugin")
+        result = plugin._inherit_config_from_default("new-profile")
+        assert result is True
+        written = (profile_dir / "config.yaml").read_text()
+        assert written == "provider: default-provider\nmodel: gpt-4\n"
+
+    def test_returns_false_when_default_has_no_config(self, tmp_hermes_home, tmp_path):
+        """When default profile has no config.yaml, returns False."""
+        import os
+
+        os.environ["HERMES_HOME"] = str(tmp_hermes_home)
+        # No config.yaml at default profile
+        profile_dir = tmp_hermes_home / "profiles" / "new-profile"
+        profile_dir.mkdir(parents=True)
+
+        plugin = make_plugin(tmp_path, "test-plugin")
+        result = plugin._inherit_config_from_default("new-profile")
+        assert result is False
+
+
+class TestEnsureProfileIsNew:
+    def test_is_new_true_when_profile_created(self, tmp_hermes_home, tmp_path, monkeypatch):
+        """When hermes profile create succeeds, is_new=True."""
+        import os
+        import subprocess
+
+        os.environ["HERMES_HOME"] = str(tmp_hermes_home)
+
+        def fake_run(cmd, **kwargs):
+            if cmd[0] == "hermes" and "profile" in cmd and "create" in cmd:
+                # Simulate successful profile creation
+                profile_name = cmd[-1]
+                profile_dir = tmp_hermes_home / "profiles" / profile_name
+                profile_dir.mkdir(parents=True)
+                (profile_dir / "config.yaml").write_text("provider: auto-generated\n")
+                return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+            return subprocess.run(cmd, **kwargs)
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        plugin = make_plugin(tmp_path, "test-plugin")
+        success, is_new = plugin._ensure_profile("brand-new")
+        assert success is True
+        assert is_new is True

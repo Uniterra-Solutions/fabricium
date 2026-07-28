@@ -117,14 +117,15 @@ class HermesPlugin:
             profiles.insert(0, "default")
         return profiles
 
-    def _ensure_profile(self, profile_name: str) -> bool:
+    def _ensure_profile(self, profile_name: str) -> tuple[bool, bool]:
         """Create the profile if it doesn't exist.
 
-        Returns True if the profile exists or was created.
+        Returns ``(success, is_new)`` — *is_new* is True only when the
+        profile was freshly created by this call (not when it already existed).
         """
         profile_dir = self._get_profile_dir(profile_name)
         if profile_dir.exists() and (profile_dir / "config.yaml").exists():
-            return True
+            return True, False
 
         print(f"\n  Creating profile '{profile_name}'...")
         try:
@@ -136,14 +137,36 @@ class HermesPlugin:
                 encoding="utf-8",
             )
             print(f"  ✓ Profile '{profile_name}' created")
-            return True
+            return True, True
         except subprocess.CalledProcessError as e:
             print(f"  ! Could not auto-create profile: {e.stderr.strip()}")
             print(f"    Create it manually: hermes profile create {profile_name}")
-            return False
+            return False, False
         except FileNotFoundError:
             print("  ! 'hermes' CLI not found on PATH")
             print(f"    Create the profile manually: hermes profile create {profile_name}")
+            return False, False
+
+    def _inherit_config_from_default(self, profile_name: str) -> bool:
+        """Copy the default profile's config.yaml into *profile_name*.
+
+        Returns True if the config was successfully copied.
+        Returns False and prints a message when the default profile
+        has no config.yaml or the copy fails.
+        """
+        default_config = state._get_global_hermes_home() / "config.yaml"
+        if not default_config.exists():
+            print("  ! Default profile has no config.yaml — skipping config inheritance")
+            return False
+
+        profile_dir = self._get_profile_dir(profile_name)
+        dst = profile_dir / "config.yaml"
+        try:
+            dst.write_text(default_config.read_text(encoding="utf-8"), encoding="utf-8")
+            print("  ✓ Config inherited from default profile")
+            return True
+        except OSError as e:
+            print(f"  ! Could not copy config: {e}")
             return False
 
     def _apply_soul_md(self, profile_name: str) -> bool:
@@ -279,9 +302,16 @@ class HermesPlugin:
 
         # Step 1: Profile
         print("\n📁 Profile")
-        profile_ok = self._ensure_profile(profile_name)
+        profile_ok, is_new = self._ensure_profile(profile_name)
         if profile_ok:
             print(f"  ✓ Profile '{profile_name}' ready")
+
+        # Step 1.5: Config inheritance (new profiles only)
+        if is_new:
+            if prompts.prompt_yes_no(
+                "  Inherit config from default profile?", default=True
+            ):
+                self._inherit_config_from_default(profile_name)
 
         # Step 2: Bundled skills
         print("\n📚 Bundled Skills")
@@ -344,10 +374,17 @@ class HermesPlugin:
             print(f"\n{'─' * 40}")
             print(f"📁 Profile: {profile_name}")
 
-            profile_ok = self._ensure_profile(profile_name)
+            profile_ok, is_new = self._ensure_profile(profile_name)
             if not profile_ok:
                 print(f"  ⏭  Skipping profile '{profile_name}'")
                 continue
+
+            # Config inheritance for newly created profiles
+            if is_new:
+                if prompts.prompt_yes_no(
+                    "  Inherit config from default profile?", default=True
+                ):
+                    self._inherit_config_from_default(profile_name)
 
             print()
             profile_dir = self._get_profile_dir(profile_name)
@@ -577,7 +614,7 @@ class HermesPlugin:
             print(f"   ! Could not update fabricium: {e.stderr.strip()}")
         except FileNotFoundError:
             print("✗")
-            print("   ! pip not found — cannot update fabricium")
+            print(f"   ! pip not found — cannot update fabricium")
 
         # ── Always refresh skills and sync profiles ─────────────────
         self._sync_installed_profiles("updated" if did_update else "refreshed")
