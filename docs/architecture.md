@@ -99,13 +99,49 @@ hermes <name> update
     │   ├─► git_utils.get_ahead_behind()
     │   └─► git_utils.pull_branch()
     │
-    ├─► pip install --upgrade fabricium  # Auto-update dependency
+    ├─► [fabricium update] ──────────────
+    │   ├─► sys.executable -m pip --version    # Pre-check project pip
+    │   └─► sys.executable -m pip install --upgrade fabricium
+    │        (Uses project Python, NOT Hermes-internal — avoids overwrite
+    │         when Hermes self-updates its own venv.)
     │
     └─► _sync_installed_profiles()       # Refresh skills + SOUL.md
          ├─► skills.get_bundled_skill_names()
          ├─► skills.remove_stale_from_profile()
          ├─► skills.install_bundled_skills()
          └─► _apply_soul_md()
+```
+
+## Data Flow: Plugin Setup (with Config Inheritance)
+
+```
+hermes <name> setup
+    │
+    ├─► [single-profile mode] ────────────
+    │   ├─► _ensure_profile(name)                        # Create if new
+    │   │    └─► hermes profile create <name>
+    │   │         Returns (success, is_new)
+    │   │
+    │   ├─► [if is_new] ─────────────────────────────────
+    │   │    └─► prompt_yes_no("Inherit config from default?", default=True)
+    │   │         └─► _inherit_config_from_default(name)
+    │   │              ├─► Read ~/.hermes/config.yaml
+    │   │              └─► Write ~/.hermes/profiles/<name>/config.yaml
+    │   │
+    │   ├─► prompt_yes_no("Install bundled skills?", default=True)
+    │   │    └─► skills.install_bundled_skills()
+    │   │
+    │   └─► prompt_yes_no("Apply SOUL.md?", default=True)
+    │        └─► _apply_soul_md()
+    │
+    └─► [multi-profile mode] ──────────────
+         ├─► _list_profiles()
+         ├─► _prompt_select_profiles()
+         └─► for each profile:
+              ├─► _ensure_profile(name) → (success, is_new)
+              ├─► [if is_new] → prompt + _inherit_config_from_default()
+              ├─► skills.install_bundled_skills()
+              └─► _apply_soul_md() (if mode == "soul_md")
 ```
 
 ## Data Flow: Eval Pipeline
@@ -139,7 +175,7 @@ python -m fabricium.evals.runner
 | LLM-as-Judge with position randomisation | Reduces order bias. Judge and candidate should use different providers to avoid self-preference. | Active |
 | Reasoning-model SSE proxy | DeepSeek V4 outputs `content: null` during reasoning → Hermes sees empty stream. Proxy patches `content: null` → `content: ""`. | Active |
 | Convention over configuration | `default_profile`, standard paths, sensible defaults. 99% of plugins need zero config. | Active |
-| Hermes-managed Python for pip | `_get_hermes_python()` locates `~/.hermes/.venv/bin/python3` (or `Scripts/python.exe` on Windows) instead of relying on `sys.executable`, which may point to the system Python on Windows. Prevents `pip install` from targeting the wrong environment. Fallback to `sys.executable` when no managed venv exists. | Active |
+| Hermes-managed Python for pip (plugin) | `_get_hermes_python()` locates `~/.hermes/.venv/bin/python3` (or `Scripts/python.exe` on Windows) instead of relying on `sys.executable`, which may point to the system Python on Windows. Prevents `pip install` from targeting the wrong environment. Fallback to `sys.executable` when no managed venv exists. **Exception:** the fabricium dependency update in `_update_pull()` uses `sys.executable` directly — fabricium is a project dependency, not a Hermes-internal package, and installing it into Hermes's venv would be overwritten by Hermes self-updates. | Active |
 
 ## How to Update
 

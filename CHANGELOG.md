@@ -5,6 +5,37 @@ All notable changes to Fabricium will be documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-07-28
+
+### Added
+
+- **Config inheritance from default profile on new profile creation.** When
+  `hermes <name> setup` creates a new profile via `hermes profile create`,
+  the user is now prompted whether to copy the default profile's
+  `config.yaml` into the new profile. Defaults to Yes in both interactive
+  and non-TTY modes. Applies to both single-profile (`default_profile=...`)
+  and multi-profile (`default_profile=None`) modes. New internal method:
+  `_inherit_config_from_default()`.
+
+### Changed
+
+- **`_ensure_profile()` return type changed from `bool` to `tuple[bool, bool]`.**
+  Now returns `(success, is_new)` — `is_new` is True only when the profile
+  was freshly created by that call. Callers in `_setup_single_profile()` and
+  `_setup_multi_profile()` updated to unpack the tuple and trigger config
+  inheritance for new profiles.
+
+### Fixed
+
+- **Fabricium dependency update used wrong Python interpreter.** The
+  `pip install --upgrade fabricium` call in `_update_pull()` previously used
+  `_get_hermes_python()`, which resolves to Hermes's internal venv Python.
+  Installing fabricium there would be overwritten the next time Hermes
+  self-updates. Now uses `sys.executable` (the project Python where
+  fabricium is actually a dependency). Also added a `pip --version`
+  pre-check before attempting the install, consistent with the pattern in
+  `_update_pull_pip()`.
+
 ## [0.2.2] — 2026-07-28
 
 ### Fixed

@@ -6,7 +6,7 @@
 |-------|------------|---------|
 | Modules/files | `snake_case` | `git_utils.py`, `test_plugin.py` |
 | Classes | `PascalCase` | `HermesPlugin`, `SkillEvalHarness` |
-| Functions/methods | `snake_case` | `load_state()`, `_ensure_profile()` |
+| Functions/methods | `snake_case` | `load_state()`, `_ensure_profile()`, `_inherit_config_from_default()` |
 | Private methods | `_leading_underscore` | `_setup_command()`, `_sync_installed_profiles()` |
 | Constants | `UPPER_SNAKE` | `DOCKER_IMAGE`, `DEFAULT_JUDGE_PROMPT` |
 | Test files | `test_<module>.py` | `test_skills.py`, `test_plugin.py` |
