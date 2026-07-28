@@ -94,30 +94,41 @@ def _get_global_hermes_home() -> Path:
 def _get_hermes_python() -> str:
     """Return the Hermes-managed Python executable path.
 
-    Uses the global Hermes home to locate ``.venv/bin/python3``
-    (or ``.venv/Scripts/python.exe`` on Windows).  When the
-    platform-specific entry point is missing, falls back to
-    ``python`` inside the same directory before giving up and
-    returning ``sys.executable``.
+    Searches known venv locations under the global Hermes home so that
+    ``pip install`` always targets Hermes' own Python environment rather
+    than a system interpreter.  On macOS / Linux ``sys.executable`` is
+    already the Hermes Python when the plugin runs inside Hermes, so it
+    serves as a reliable last-resort fallback.  On Windows (where
+    Hermes may be a frozen executable) the venv search is the primary
+    mechanism.
 
-    This prevents ``pip install`` from targeting the system Python
-    (common on Windows where ``sys.executable`` may point to a
-    separately-installed system interpreter).
+    Resolution order
+    ----------------
+    1.  ``<hermes_home>/<known-dir>/venv/bin/python3`` (macOS / Linux)
+        ``<hermes_home>/<known-dir>/venv/Scripts/python.exe`` (Windows)
+    2.  ``<hermes_home>/<known-dir>/.venv/bin/python3`` (macOS / Linux)
+        ``<hermes_home>/<known-dir>/.venv/Scripts/python.exe`` (Windows)
+    3.  *sys.executable* (already the Hermes Python on macOS / Linux).
     """
     hermes_home = _get_global_hermes_home()
+
     if sys.platform == "win32":
-        candidates = [
-            hermes_home / ".venv" / "Scripts" / "python.exe",
-            hermes_home / ".venv" / "Scripts" / "python",
-        ]
+        bins = ("Scripts/python.exe", "Scripts/python")
     else:
-        candidates = [
-            hermes_home / ".venv" / "bin" / "python3",
-            hermes_home / ".venv" / "bin" / "python",
-        ]
-    for python in candidates:
-        if python.exists():
-            return str(python)
+        bins = ("bin/python3", "bin/python")
+
+    # Known subdirectories that may contain a venv.
+    # Order: explicit install dirs first, then the legacy flat .venv.
+    known_dirs = ("hermes-agent", "")
+
+    for dirname in known_dirs:
+        base = hermes_home / dirname if dirname else hermes_home
+        for venv_name in ("venv", ".venv"):
+            for bin_name in bins:
+                candidate = base / venv_name / bin_name
+                if candidate.exists():
+                    return str(candidate)
+
     return sys.executable
 
 

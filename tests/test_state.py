@@ -320,3 +320,25 @@ class TestGetHermesPython:
         result = state._get_hermes_python()
         expected = (tmp_hermes_home / ".venv" / "Scripts" / "python").resolve()
         assert str(Path(result).resolve()) == str(expected)
+
+    def test_returns_hermes_agent_venv_python(self, tmp_hermes_home):
+        """When hermes-agent/venv/bin/python3 exists, return that path."""
+        venv_python = tmp_hermes_home / "hermes-agent" / "venv" / "bin" / "python3"
+        venv_python.parent.mkdir(parents=True)
+        venv_python.touch()
+
+        result = state._get_hermes_python()
+        assert str(Path(result).resolve()) == str(venv_python.resolve())
+
+    def test_hermes_agent_takes_priority_over_flat_dotvenv(self, tmp_hermes_home):
+        """hermes-agent/venv/ is checked before the flat .venv/."""
+        # Create both — hermes-agent/venv should win
+        agent_python = tmp_hermes_home / "hermes-agent" / "venv" / "bin" / "python3"
+        agent_python.parent.mkdir(parents=True)
+        agent_python.touch()
+        flat_python = tmp_hermes_home / ".venv" / "bin" / "python3"
+        flat_python.parent.mkdir(parents=True)
+        flat_python.touch()
+
+        result = state._get_hermes_python()
+        assert str(Path(result).resolve()) == str(agent_python.resolve())

@@ -5,6 +5,19 @@ All notable changes to Fabricium will be documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] — 2026-07-28
+
+### Fixed
+
+- **`_get_hermes_python()` missed `hermes-agent/venv` layout.** The function
+  only checked for `.venv/` directly under the global Hermes home
+  (`~/.hermes/.venv/bin/python3`), but Hermes Agent is installed at
+  `~/.hermes/hermes-agent/venv/bin/python3`. Rewrote the venv search to
+  probe known subdirectory layouts (`hermes-agent/venv`, `hermes-agent/.venv`,
+  flat `venv`, flat `.venv`) before falling back to `sys.executable`. This
+  ensures `pip install --upgrade` always targets Hermes's own Python
+  environment regardless of install layout.
+
 ## [0.2.1] — 2026-07-24
 
 ### Fixed
